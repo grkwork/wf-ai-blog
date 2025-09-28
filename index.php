@@ -1,173 +1,41 @@
-<?php
-
-declare(strict_types=1);
-
-$sites = null;
-$error = null;
-
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $apiKey = trim($_POST['api_key'] ?? '');
-
-    if ($apiKey === '') {
-        $error = 'Please enter a valid Webflow API key.';
-    } else {
-        try {
-            $sites = fetchWebflowSites($apiKey);
-        } catch (Throwable $exception) {
-            $error = $exception->getMessage();
-        }
-    }
-}
-
-function fetchWebflowSites(string $apiKey): array
-{
-    $curl = curl_init('https://api.webflow.com/sites');
-
-    $headers = [
-        'Authorization: Bearer ' . $apiKey,
-        'Accept-Version: 1.0.0',
-        'Content-Type: application/json',
-    ];
-
-    curl_setopt_array($curl, [
-        CURLOPT_RETURNTRANSFER => true,
-        CURLOPT_HTTPHEADER => $headers,
-        CURLOPT_TIMEOUT => 15,
-    ]);
-
-    $response = curl_exec($curl);
-    $httpStatus = curl_getinfo($curl, CURLINFO_HTTP_CODE);
-
-    if ($response === false) {
-        $curlError = curl_error($curl) ?: 'Unknown error while communicating with Webflow API.';
-        curl_close($curl);
-
-        throw new RuntimeException($curlError);
-    }
-
-    curl_close($curl);
-
-    $payload = json_decode($response, true);
-
-    if (json_last_error() !== JSON_ERROR_NONE) {
-        throw new RuntimeException('Failed to parse Webflow API response: ' . json_last_error_msg());
-    }
-
-    if ($httpStatus >= 400) {
-        $message = $payload['message'] ?? 'Webflow API returned an error (status ' . $httpStatus . ').';
-        throw new RuntimeException($message);
-    }
-
-    if (!isset($payload) || !is_array($payload)) {
-        throw new RuntimeException('Unexpected Webflow API response structure.');
-    }
-
-    return $payload;
-}
-
-?>
+<?php declare(strict_types=1); ?>
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Webflow AI Blog Assistant</title>
-    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@3.4.10/dist/tailwind.min.css" rel="stylesheet">
+    <title>Webflow AI Blog Connector</title>
+    <script src="https://cdn.tailwindcss.com"></script>
 </head>
 <body class="bg-slate-100 min-h-screen">
-    <div class="max-w-4xl mx-auto px-4 py-12">
-        <header class="mb-8 text-center">
-            <h1 class="text-3xl font-bold text-slate-900">Webflow AI Blog Assistant</h1>
-            <p class="mt-2 text-slate-600">Enter your Webflow API key to retrieve the sites available in your account.</p>
-        </header>
+    <div class="w-full max-w-2xl mx-auto p-6 bg-gray-50 rounded-lg shadow-md mt-10">
+        <h1 class="text-2xl font-bold mb-4 text-gray-800">Connect Your Account</h1>
+        <p class="text-gray-600 mb-6">Enter your Access Token to load your available sites.</p>
 
-        <section class="bg-white shadow rounded-lg p-6">
-            <form method="POST" class="space-y-4">
-                <div>
-                    <label for="api_key" class="block text-sm font-medium text-slate-700">Webflow API Key</label>
-                    <input
-                        type="password"
-                        name="api_key"
-                        id="api_key"
-                        value=""
-                        placeholder="Enter your API key"
-                        class="mt-1 block w-full rounded-md border border-slate-300 bg-white px-3 py-2 shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
-                        autocomplete="off"
-                        required
-                    >
-                    <p class="mt-2 text-xs text-slate-500">Your key is used only for this request and is never stored.</p>
-                </div>
+        <form id="apiKeyForm" class="flex flex-col gap-4 sm:flex-row sm:items-center">
+            <input
+                type="password"
+                id="apiKeyInput"
+                placeholder="Enter your Access Token here"
+                class="flex-grow p-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:outline-none transition"
+                required
+            />
+            <button
+                type="submit"
+                id="submitBtn"
+                class="bg-blue-600 text-white font-semibold py-3 px-5 rounded-md hover:bg-blue-700 transition disabled:bg-gray-400"
+            >
+                Load Sites
+            </button>
+        </form>
 
-                <div class="flex items-center justify-end gap-2">
-                    <button
-                        type="submit"
-                        class="inline-flex items-center rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white shadow-sm transition hover:bg-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
-                    >
-                        Fetch Sites
-                    </button>
-                </div>
-            </form>
+        <div id="sitesListContainer" class="mt-8">
+            <p class="text-center text-gray-500">Your sites will appear here...</p>
+        </div>
 
-            <?php if ($error !== null): ?>
-                <div class="mt-6 rounded-md bg-rose-50 p-4">
-                    <div class="flex">
-                        <div class="ml-3">
-                            <h3 class="text-sm font-medium text-rose-800">Error</h3>
-                            <div class="mt-2 text-sm text-rose-700">
-                                <p><?= htmlspecialchars($error, ENT_QUOTES, 'UTF-8'); ?></p>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            <?php endif; ?>
-
-            <?php if (is_array($sites)): ?>
-                <div class="mt-6">
-                    <h2 class="text-xl font-semibold text-slate-900">Your Sites</h2>
-                    <?php if (count($sites) === 0): ?>
-                        <p class="mt-2 text-slate-600">No sites found for this API key.</p>
-                    <?php else: ?>
-                        <div class="mt-4 overflow-hidden rounded-lg border border-slate-200">
-                            <table class="min-w-full divide-y divide-slate-200">
-                                <thead class="bg-slate-50">
-                                    <tr>
-                                        <th scope="col" class="px-4 py-3 text-left text-sm font-semibold text-slate-600">Name</th>
-                                        <th scope="col" class="px-4 py-3 text-left text-sm font-semibold text-slate-600">Site ID</th>
-                                        <th scope="col" class="px-4 py-3 text-left text-sm font-semibold text-slate-600">Created</th>
-                                        <th scope="col" class="px-4 py-3 text-left text-sm font-semibold text-slate-600">Published</th>
-                                    </tr>
-                                </thead>
-                                <tbody class="divide-y divide-slate-100 bg-white">
-                                    <?php foreach ($sites as $site): ?>
-                                        <tr>
-                                            <td class="px-4 py-3 text-sm text-slate-900">
-                                                <?= htmlspecialchars($site['name'] ?? 'Untitled', ENT_QUOTES, 'UTF-8'); ?>
-                                            </td>
-                                            <td class="px-4 py-3 text-sm text-slate-600">
-                                                <code class="rounded bg-slate-100 px-2 py-1 text-xs">
-                                                    <?= htmlspecialchars($site['_id'] ?? 'N/A', ENT_QUOTES, 'UTF-8'); ?>
-                                                </code>
-                                            </td>
-                                            <td class="px-4 py-3 text-sm text-slate-600">
-                                                <?= htmlspecialchars($site['createdOn'] ?? 'N/A', ENT_QUOTES, 'UTF-8'); ?>
-                                            </td>
-                                            <td class="px-4 py-3 text-sm text-slate-600">
-                                                <?= htmlspecialchars($site['lastPublished'] ?? 'Never', ENT_QUOTES, 'UTF-8'); ?>
-                                            </td>
-                                        </tr>
-                                    <?php endforeach; ?>
-                                </tbody>
-                            </table>
-                        </div>
-                    <?php endif; ?>
-                </div>
-            <?php endif; ?>
-        </section>
-
-        <footer class="mt-12 text-center text-xs text-slate-500">
-            <p>Built with PHP and Tailwind CSS. Enter the next steps to generate AI blog posts.</p>
-        </footer>
+        <div id="collectionsListContainer" class="mt-8"></div>
     </div>
+
+    <script src="/js/main.js"></script>
 </body>
 </html>
-
