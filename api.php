@@ -102,7 +102,7 @@ function handleCollectionDetails(Client $client, string $token, ?string $collect
 
 function handleGenerateBlog(string $token, ?string $prompt, array $fields, string $model): void
 {
-    $apiKey = getenv('OPENAI_API_KEY');
+    $apiKey = getenv('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');
 
     if (!$apiKey) {
         throw new RuntimeException('Missing server-side OpenAI API key.');
