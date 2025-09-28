@@ -5,11 +5,24 @@ document.addEventListener('DOMContentLoaded', () => {
     const sitesListContainer = document.getElementById('sitesListContainer');
     const collectionsListContainer = document.getElementById('collectionsListContainer');
 
+    if (!apiKeyForm || !apiKeyInput || !submitBtn || !sitesListContainer) {
+        console.error('Webflow connector: Required DOM elements are missing.');
+        return;
+    }
+
+    const setCollectionsContent = (markup) => {
+        if (!collectionsListContainer) {
+            return;
+        }
+
+        collectionsListContainer.innerHTML = markup;
+    };
+
     const apiUrl = '/api.php';
 
     apiKeyForm.addEventListener('submit', async (event) => {
         event.preventDefault();
-        collectionsListContainer.innerHTML = '';
+        setCollectionsContent('');
         await fetchSites();
     });
 
@@ -66,7 +79,7 @@ document.addEventListener('DOMContentLoaded', () => {
     async function fetchCollections(siteId) {
         const key = apiKeyInput.value.trim();
 
-        collectionsListContainer.innerHTML = '<p class="text-center text-blue-600">Loading collections...</p>';
+        setCollectionsContent('<p class="text-center text-blue-600">Loading collections...</p>');
 
         try {
             const response = await fetch(apiUrl, {
@@ -83,7 +96,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             displayCollections(data.collections ?? data);
         } catch (error) {
-            collectionsListContainer.innerHTML = `<p class="text-center text-red-600">Error: ${error.message}</p>`;
+            setCollectionsContent(`<p class="text-center text-red-600">Error: ${error.message}</p>`);
         }
     }
 
@@ -122,6 +135,11 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function displayCollections(collections) {
+        if (!collectionsListContainer) {
+            console.warn('Webflow connector: collections container not found.');
+            return;
+        }
+
         collectionsListContainer.innerHTML = '';
 
         const title = document.createElement('h2');
