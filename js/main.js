@@ -3,19 +3,40 @@ document.addEventListener('DOMContentLoaded', () => {
     const apiKeyInput = document.getElementById('apiKeyInput');
     const submitBtn = document.getElementById('submitBtn');
     const sitesListContainer = document.getElementById('sitesListContainer');
-    const collectionsListContainer = document.getElementById('collectionsListContainer');
+    let collectionsListContainer = document.getElementById('collectionsListContainer');
 
     if (!apiKeyForm || !apiKeyInput || !submitBtn || !sitesListContainer) {
         console.error('Webflow connector: Required DOM elements are missing.');
         return;
     }
 
+    const ensureCollectionsContainer = () => {
+        if (collectionsListContainer) {
+            return collectionsListContainer;
+        }
+
+        const anchor = document.getElementById('sitesListContainer');
+        if (!anchor) {
+            return null;
+        }
+
+        const container = document.createElement('div');
+        container.id = 'collectionsListContainer';
+        container.className = 'mt-8';
+        anchor.insertAdjacentElement('afterend', container);
+
+        collectionsListContainer = container;
+        return collectionsListContainer;
+    };
+
     const setCollectionsContent = (markup) => {
-        if (!collectionsListContainer) {
+        const container = ensureCollectionsContainer();
+        if (!container) {
+            console.warn('Webflow connector: Unable to locate or create collections container.');
             return;
         }
 
-        collectionsListContainer.innerHTML = markup;
+        container.innerHTML = markup;
     };
 
     const apiUrl = '/api.php';
