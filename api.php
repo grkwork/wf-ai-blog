@@ -5,14 +5,9 @@ use GuzzleHttp\Client;
 use GuzzleHttp\Exception\RequestException;
 
 header('Content-Type: application/json');
-header('Access-Control-Allow-Origin', '*');
-header('Access-Control-Allow-Methods', 'POST, OPTIONS');
-header('Access-Control-Allow-Headers', 'Content-Type');
-
-if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
-    http_response_code(204);
-    exit;
-}
+header('Access-Control-Allow-Origin: *');
+header('Access-Control-Allow-Methods: POST, OPTIONS');
+header('Access-Control-Allow-Headers: Content-Type');
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     http_response_code(405);
@@ -32,44 +27,37 @@ if (!$token) {
 
 $client = new Client();
 
-$apiUrl = $siteId
-    ? "https://api.webflow.com/v2/sites/{$siteId}/collections"
-    : 'https://api.webflow.com/v2/sites';
+// --- NEW LOGIC: Decide which API endpoint to call ---
+if ($siteId) {
+    // If a siteId is provided, fetch its collections
+    $apiUrl = "https://api.webflow.com/v2/sites/{$siteId}/collections";
+} else {
+    // Otherwise, fetch the list of sites
+    $apiUrl = 'https://api.webflow.com/v2/sites';
+}
 
 try {
     $response = $client->request('GET', $apiUrl, [
         'headers' => [
             'Authorization' => 'Bearer ' . $token,
             'accept' => 'application/json',
-        ],
-        'http_errors' => false,
+        ]
     ]);
 
-    $statusCode = $response->getStatusCode();
     $body = $response->getBody()->getContents();
     $data = json_decode($body, true);
 
-    if (json_last_error() !== JSON_ERROR_NONE) {
-        http_response_code(500);
-        echo json_encode(['message' => 'Failed to parse response from Webflow API.']);
-        exit;
-    }
-
-    if ($statusCode >= 400) {
-        $errorMessage = $data['message'] ?? $data['error'] ?? 'An API error occurred.';
-        http_response_code($statusCode);
-        echo json_encode(['message' => $errorMessage]);
-        exit;
-    }
-
     http_response_code(200);
-    echo json_encode($data);
-} catch (RequestException $exception) {
-    if ($exception->hasResponse()) {
-        $response = $exception->getResponse();
+    // Return the full data payload from Webflow
+    echo json_encode($data); 
+
+} catch (RequestException $e) {
+    if ($e->hasResponse()) {
+        $response = $e->getResponse();
         $statusCode = $response->getStatusCode();
         $errorBody = $response->getBody()->getContents();
         $errorData = json_decode($errorBody, true);
+        
         $errorMessage = $errorData['message'] ?? 'An API error occurred.';
 
         http_response_code($statusCode);
@@ -79,3 +67,4 @@ try {
         echo json_encode(['message' => 'Network error: Unable to connect to Webflow API.']);
     }
 }
+?>
