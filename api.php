@@ -18,6 +18,7 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 $input = json_decode(file_get_contents('php://input'), true);
 $token = $input['apiKey'] ?? null;
 $siteId = $input['siteId'] ?? null;
+$collectionId = $input['collectionId'] ?? null;
 
 if (!$token) {
     http_response_code(400);
@@ -28,7 +29,10 @@ if (!$token) {
 $client = new Client();
 
 // --- NEW LOGIC: Decide which API endpoint to call ---
-if ($siteId) {
+if ($collectionId) {
+    // If a collectionId is provided, fetch its details (includes fields)
+    $apiUrl = "https://api.webflow.com/v2/collections/{$collectionId}";
+} elseif ($siteId) {
     // If a siteId is provided, fetch its collections
     $apiUrl = "https://api.webflow.com/v2/sites/{$siteId}/collections";
 } else {
