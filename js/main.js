@@ -1,36 +1,107 @@
 document.addEventListener('DOMContentLoaded', () => {
-    // Get references to all HTML elements we'll interact with
     const apiKeyForm = document.getElementById('apiKeyForm');
     const apiKeyInput = document.getElementById('apiKeyInput');
     const submitBtn = document.getElementById('submitBtn');
     const sitesListContainer = document.getElementById('sitesListContainer');
-    const collectionsListContainer = document.getElementById('collectionsListContainer'); // New container
+    const collectionsListContainer = document.getElementById('collectionsListContainer');
     const fieldsListContainer = document.getElementById('fieldsListContainer');
+    const blogGeneratorContainer = document.getElementById('blogGeneratorContainer');
+
+    if (!apiKeyForm || !apiKeyInput || !submitBtn || !sitesListContainer || !collectionsListContainer) {
+        console.warn('Webflow connector: Required DOM nodes are missing.');
+        return;
+    }
 
     const apiUrl = 'https://lightslategray-spoonbill-600904.hostingersite.com/api.php';
 
-    // === EVENT LISTENERS ===
+    const TEXT_FIELD_TYPES = new Set([
+        'PlainText',
+        'RichText',
+        'TextArea',
+        'Markdown',
+        'MultiLinePlainText',
+        'LongText',
+        'Number',
+        'Date',
+    ]);
 
-    // 1. Listen for the initial form submission to get sites
+    const LONG_TEXT_FIELD_TYPES = new Set([
+        'RichText',
+        'TextArea',
+        'Markdown',
+        'MultiLinePlainText',
+        'LongText',
+    ]);
+
+    let selectedSiteId = null;
+    let selectedCollection = null;
+    let selectedCollectionFields = [];
+    let draftFieldValues = {};
+    let rawAiContent = '';
+    let lastKeyword = '';
+
+    resetCollectionsUI();
+    resetFieldsUI();
+    resetBlogGenerator();
+
     apiKeyForm.addEventListener('submit', async (event) => {
         event.preventDefault();
-        collectionsListContainer.innerHTML = ''; // Clear collections when loading new sites
-        fetchSites();
+        await fetchSites();
     });
 
-    // 2. (NEW) Listen for clicks on the "Select" button for any site
     sitesListContainer.addEventListener('click', (event) => {
-        // Use event delegation to catch clicks on dynamically added buttons
-        if (event.target && event.target.matches('button[data-site-id]')) {
-            const siteId = event.target.dataset.siteId;
-            fetchCollections(siteId);
-            // Highlight the selected site
-            document.querySelectorAll('#sitesListContainer li').forEach(li => li.classList.remove('ring-2', 'ring-blue-500'));
-            event.target.closest('li').classList.add('ring-2', 'ring-blue-500');
+        const button = event.target.closest('button[data-site-id]');
+        if (!button) {
+            return;
         }
+
+        const siteId = button.dataset.siteId;
+        if (!siteId) {
+            return;
+        }
+
+        selectedSiteId = siteId;
+        selectedCollection = null;
+        selectedCollectionFields = [];
+        draftFieldValues = {};
+        rawAiContent = '';
+        lastKeyword = '';
+
+        highlightSelectedSite(button.closest('li'));
+        resetCollectionsUI('Loading collections…');
+        resetFieldsUI();
+        resetBlogGenerator('Select a collection to enable the AI generator.');
+
+        fetchCollections(siteId);
     });
 
-    // === DATA FETCHING FUNCTIONS ===
+    collectionsListContainer.addEventListener('click', (event) => {
+        const listItem = event.target.closest('li[data-collection-id]');
+        if (!listItem) {
+            return;
+        }
+
+        const collectionId = listItem.dataset.collectionId;
+        if (!collectionId) {
+            return;
+        }
+
+        selectedCollection = {
+            id: collectionId,
+            displayName: listItem.dataset.collectionName || 'Selected Collection',
+            slug: listItem.dataset.collectionSlug || '',
+        };
+        selectedCollectionFields = [];
+        draftFieldValues = {};
+        rawAiContent = '';
+        lastKeyword = '';
+
+        highlightSelectedCollection(listItem);
+        resetFieldsUI('Loading fields…');
+        resetBlogGenerator('Loading collection details…');
+
+        fetchCollectionFields(collectionId);
+    });
 
     async function fetchSites() {
         const key = apiKeyInput.value.trim();
@@ -40,166 +111,153 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         submitBtn.disabled = true;
-        sitesListContainer.innerHTML = '<p class="text-center text-blue-600">Loading sites...</p>';
+        sitesListContainer.innerHTML = '<p class="text-center text-blue-600">Loading sites…</p>';
+        resetCollectionsUI();
+        resetFieldsUI();
+        resetBlogGenerator();
 
         try {
-            const response = await fetch(apiUrl, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ apiKey: key }),
-            });
-            const data = await response.json();
-            if (!response.ok) throw new Error(data.message);
-            displaySites(data.sites);
+            const data = await callApi({ action: 'list-sites' });
+            displaySites(data.sites ?? data);
         } catch (error) {
-            sitesListContainer.innerHTML = `<p class="text-center text-red-600">Error: ${error.message}</p>`;
+            sitesListContainer.innerHTML = `<p class="text-center text-red-600">${escapeHtml(error.message)}</p>`;
         } finally {
             submitBtn.disabled = false;
         }
     }
 
     async function fetchCollections(siteId) {
-        const key = apiKeyInput.value.trim(); // The API key is still needed for authentication
-        collectionsListContainer.innerHTML = '<p class="text-center text-blue-600">Loading collections...</p>';
+        resetCollectionsUI('Loading collections…');
 
         try {
-            const response = await fetch(apiUrl, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                // This time, we send both the key AND the siteId
-                body: JSON.stringify({ apiKey: key, siteId: siteId }),
-            });
-            const data = await response.json();
-            if (!response.ok) throw new Error(data.message);
-            displayCollections(data.collections);
-            clearFields();
+            const data = await callApi({ action: 'list-collections', siteId });
+            displayCollections(data.collections ?? data);
         } catch (error) {
-            collectionsListContainer.innerHTML = `<p class="text-center text-red-600">Error: ${error.message}</p>`;
-            clearFields();
+            resetCollectionsUI(`Error: ${escapeHtml(error.message)}`);
         }
     }
 
-    // === DISPLAY FUNCTIONS ===
+    async function fetchCollectionFields(collectionId) {
+        try {
+            const data = await callApi({ action: 'collection-details', collectionId });
+            const collection = normalizeCollectionResponse(data);
+
+            selectedCollection = {
+                id: collection.id ?? collectionId,
+                displayName: collection.displayName ?? collection.name ?? selectedCollection?.displayName ?? 'Collection',
+                slug: collection.slug ?? selectedCollection?.slug ?? '',
+            };
+
+            selectedCollectionFields = Array.isArray(collection.fields) ? collection.fields : [];
+
+            displayFields(selectedCollectionFields);
+            renderBlogGenerator();
+        } catch (error) {
+            fieldsListContainer.innerHTML = `<p class="text-center text-red-600">${escapeHtml(error.message)}</p>`;
+            renderBlogGenerator('Unable to load collection fields.');
+        }
+    }
+
+    async function callApi(body) {
+        const key = apiKeyInput.value.trim();
+        if (!key) {
+            throw new Error('Access Token is required for this request.');
+        }
+
+        const response = await fetch(apiUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ apiKey: key, ...body }),
+        });
+
+        const text = await response.text();
+        let data = {};
+
+        if (text) {
+            try {
+                data = JSON.parse(text);
+            } catch (_error) {
+                data = { message: text };
+            }
+        }
+
+        if (!response.ok) {
+            const message = data && typeof data === 'object' && data.message
+                ? data.message
+                : `Request failed with status ${response.status}`;
+            throw new Error(message);
+        }
+
+        return data;
+    }
 
     function displaySites(sites) {
         sitesListContainer.innerHTML = '';
-        if (!sites || sites.length === 0) {
-            sitesListContainer.innerHTML = '<p class="text-center text-gray-500">No sites found.</p>';
+
+        if (!Array.isArray(sites) || sites.length === 0) {
+            sitesListContainer.innerHTML = '<p class="text-center text-gray-500">No sites found for this token.</p>';
             return;
         }
+
         const list = document.createElement('ul');
         list.className = 'space-y-3';
-        sites.forEach(site => {
+
+        sites.forEach((site) => {
             const listItem = document.createElement('li');
-            listItem.className = 'p-4 bg-white border rounded-md shadow-sm flex justify-between items-center transition-shadow duration-200 hover:shadow-lg';
+            listItem.className = 'p-4 bg-white border rounded-md shadow-sm flex flex-col gap-3 sm:flex-row sm:justify-between sm:items-center transition-shadow duration-200 hover:shadow-lg';
             listItem.innerHTML = `
-                <div>
-                    <p class="font-semibold text-gray-800">${site.displayName}</p>
-                    <p class="text-sm text-gray-500">${site.previewUrl}</p>
+                <div class="flex-1 min-w-0">
+                    <p class="font-semibold text-gray-800 truncate">${escapeHtml(site.displayName ?? site.name ?? 'Untitled Site')}</p>
+                    <p class="text-sm text-gray-500 truncate">${escapeHtml(site.previewUrl ?? site.publicUrl ?? 'No preview URL')}</p>
                 </div>
-                <button class="text-sm bg-green-500 text-white py-1 px-3 rounded-md hover:bg-green-600" data-site-id="${site.id}">
-                    Select
-                </button>
+                <div class="flex items-center gap-3">
+                    <span class="hidden sm:inline text-xs text-gray-400">${escapeHtml(site.id ?? site._id ?? '')}</span>
+                    <button class="text-sm bg-green-500 text-white py-2 px-4 rounded-md hover:bg-green-600" data-site-id="${escapeHtml(site.id ?? site._id ?? '')}">
+                        Select
+                    </button>
+                </div>
             `;
             list.appendChild(listItem);
         });
+
         sitesListContainer.appendChild(list);
     }
 
     function displayCollections(collections) {
-        collectionsListContainer.innerHTML = ''; // Clear previous content
-        
-        // Add a title for the collections section
-        const title = document.createElement('h3');
-        title.className = 'text-xl font-bold mb-4 text-gray-700 border-t pt-6 mt-6';
-        title.textContent = 'CMS Collections';
-        collectionsListContainer.appendChild(title);
+        collectionsListContainer.innerHTML = '';
 
-        if (!collections || collections.length === 0) {
-            collectionsListContainer.innerHTML += '<p class="text-center text-gray-500">No CMS Collections found on this site.</p>';
+        if (!Array.isArray(collections) || collections.length === 0) {
+            collectionsListContainer.innerHTML = '<p class="text-center text-gray-500">No collections found for this site.</p>';
             return;
         }
+
         const list = document.createElement('ul');
         list.className = 'space-y-2';
-        collections.forEach(collection => {
+
+        collections.forEach((collection) => {
             const listItem = document.createElement('li');
             listItem.className = 'p-3 bg-white border rounded-md flex items-center justify-between gap-3 cursor-pointer hover:bg-gray-50 transition';
-            listItem.dataset.collectionId = collection.id;
+            listItem.dataset.collectionId = collection.id ?? collection._id ?? '';
+            listItem.dataset.collectionName = collection.displayName ?? collection.name ?? '';
+            listItem.dataset.collectionSlug = collection.slug ?? '';
             listItem.innerHTML = `
                 <div class="flex flex-col gap-1">
-                    <span class="font-medium text-gray-800">${collection.displayName}</span>
-                    <span class="text-xs text-gray-500">Slug: ${collection.slug}</span>
+                    <span class="font-medium text-gray-800">${escapeHtml(collection.displayName ?? collection.name ?? 'Unnamed Collection')}</span>
+                    <span class="text-xs text-gray-500">Slug: ${escapeHtml(collection.slug ?? 'n/a')}</span>
                 </div>
                 <span class="text-xs text-blue-600">View fields →</span>
             `;
             list.appendChild(listItem);
         });
+
         collectionsListContainer.appendChild(list);
     }
 
-    collectionsListContainer.addEventListener('click', (event) => {
-        const listItem = event.target.closest('li[data-collection-id]');
-        if (!listItem) return;
-
-        const collectionId = listItem.dataset.collectionId;
-        document.querySelectorAll('#collectionsListContainer li[data-collection-id]').forEach((li) => {
-            li.classList.remove('ring-2', 'ring-indigo-500');
-        });
-        listItem.classList.add('ring-2', 'ring-indigo-500');
-
-        fetchCollectionFields(collectionId);
-    });
-
-    async function fetchCollectionFields(collectionId) {
-        const key = apiKeyInput.value.trim();
-        if (!collectionId) return;
-
-        setFieldsContent('<p class="text-center text-blue-600">Loading fields...</p>');
-
-        try {
-            const response = await fetch(apiUrl, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ apiKey: key, collectionId }),
-            });
-
-            const data = await response.json();
-            if (!response.ok) {
-                throw new Error(data.message || 'Failed to load fields.');
-            }
-
-            displayFields(data.fields ?? []);
-        } catch (error) {
-            setFieldsContent(`<p class="text-center text-red-600">Error: ${error.message}</p>`);
-        }
-    }
-
-    function setFieldsContent(markup) {
-        if (!fieldsListContainer) {
-            return;
-        }
-
-        fieldsListContainer.innerHTML = markup;
-    }
-
-    function clearFields() {
-        setFieldsContent('');
-    }
-
     function displayFields(fields) {
-        if (!fieldsListContainer) {
-            return;
-        }
-
         fieldsListContainer.innerHTML = '';
 
-        const title = document.createElement('h3');
-        title.className = 'text-xl font-bold mb-4 text-gray-700 border-t pt-6 mt-6';
-        title.textContent = 'Collection Fields';
-        fieldsListContainer.appendChild(title);
-
         if (!Array.isArray(fields) || fields.length === 0) {
-            fieldsListContainer.innerHTML += '<p class="text-center text-gray-500">No fields found for this collection.</p>';
+            fieldsListContainer.innerHTML = '<p class="text-center text-gray-500">No CMS fields found for this collection.</p>';
             return;
         }
 
@@ -207,20 +265,538 @@ document.addEventListener('DOMContentLoaded', () => {
         list.className = 'space-y-2';
 
         fields.forEach((field) => {
+            const required = field.isRequired === true || field.required === true;
+            const fieldType = field.type ?? 'unknown';
+            const badges = [];
+            if (required) {
+                badges.push('<span class="text-xs uppercase tracking-wide text-white bg-rose-500 px-2 py-0.5 rounded">Required</span>');
+            }
+            if (field.localized) {
+                badges.push('<span class="text-xs uppercase tracking-wide text-white bg-indigo-500 px-2 py-0.5 rounded">Multi-language</span>');
+            }
+
             const listItem = document.createElement('li');
-            listItem.className = 'p-3 bg-white border rounded-md flex flex-col gap-1';
-
+            listItem.className = 'p-4 bg-white border rounded-md flex flex-col gap-2';
             listItem.innerHTML = `
-                <div class="flex items-center justify-between">
-                    <span class="font-medium text-gray-800">${field.displayName ?? field.name ?? 'Untitled Field'}</span>
-                    <span class="text-xs uppercase text-gray-500 bg-gray-100 px-2 py-1 rounded">${field.type ?? 'unknown'}</span>
+                <div class="flex items-center justify-between gap-3">
+                    <p class="font-medium text-gray-800">${escapeHtml(field.displayName ?? field.name ?? field.slug ?? 'Untitled Field')}</p>
+                    <span class="text-xs uppercase text-gray-600 bg-gray-100 px-2 py-1 rounded">${escapeHtml(fieldType)}</span>
                 </div>
-                <p class="text-xs text-gray-500">Slug: ${field.slug ?? 'n/a'}</p>
+                <div class="flex flex-wrap items-center gap-2 text-xs text-gray-500">
+                    <span>Slug: <span class="font-mono">${escapeHtml(field.slug ?? 'n/a')}</span></span>
+                    ${badges.join(' ')}
+                </div>
             `;
-
             list.appendChild(listItem);
         });
 
         fieldsListContainer.appendChild(list);
+    }
+
+    function renderBlogGenerator(placeholderMessage) {
+        if (!blogGeneratorContainer) {
+            return;
+        }
+
+        if (placeholderMessage) {
+            blogGeneratorContainer.innerHTML = `<p class="text-center text-gray-500">${escapeHtml(placeholderMessage)}</p>`;
+            return;
+        }
+
+        if (!selectedCollection) {
+            blogGeneratorContainer.innerHTML = '<p class="text-center text-gray-500">Pick a collection to enable the AI blog generator.</p>';
+            return;
+        }
+
+        const editableFields = selectedCollectionFields.filter(isFieldEditable);
+        if (editableFields.length === 0) {
+            blogGeneratorContainer.innerHTML = `
+                <div class="p-6 bg-white border border-amber-200 text-amber-700 rounded-md">
+                    <h3 class="text-lg font-semibold mb-2">AI generation unavailable</h3>
+                    <p class="text-sm">This collection does not contain text-based fields that can be populated automatically. You can still create items directly in Webflow.</p>
+                </div>
+            `;
+            return;
+        }
+
+        const unsupportedRequired = selectedCollectionFields.filter((field) => {
+            const required = field.isRequired === true || field.required === true;
+            return required && !isFieldEditable(field);
+        });
+
+        blogGeneratorContainer.innerHTML = `
+            <section class="bg-white border border-gray-200 rounded-lg p-6 shadow-sm">
+                <div class="flex flex-col gap-1">
+                    <h3 class="text-xl font-semibold text-gray-800">AI Blog Draft Generator</h3>
+                    <p class="text-sm text-gray-600">Generate draft content for <span class="font-medium">${escapeHtml(selectedCollection.displayName ?? 'this collection')}</span>.</p>
+                </div>
+                <form id="blogPromptForm" class="mt-4 space-y-4">
+                    <div>
+                        <label for="blogKeywordInput" class="block text-sm font-medium text-gray-700">Focus keyword</label>
+                        <input id="blogKeywordInput" type="text" required placeholder="e.g. Sustainable web design" class="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                    </div>
+                    <div>
+                        <label for="blogModelSelect" class="block text-sm font-medium text-gray-700">AI model</label>
+                        <select id="blogModelSelect" class="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                            <option value="gpt-4o-mini" selected>GPT-4o Mini (fast)</option>
+                            <option value="o4-mini">o4-mini (higher quality)</option>
+                        </select>
+                    </div>
+                    <div class="text-xs text-gray-500">
+                        <p class="font-medium text-gray-600">Fields targeted by the generator:</p>
+                        <ul class="list-disc pl-5 mt-1 space-y-0.5">
+                            ${editableFields.map((field) => `<li>${escapeHtml(field.displayName ?? field.slug ?? 'Field')} <span class="text-gray-400">(${escapeHtml(field.type ?? 'unknown')})</span></li>`).join('')}
+                        </ul>
+                        ${unsupportedRequired.length > 0 ? `<p class="mt-2 text-amber-600">Heads up: these required fields must be completed manually after draft creation — ${unsupportedRequired.map((field) => escapeHtml(field.displayName ?? field.slug ?? 'Field')).join(', ')}.</p>` : ''}
+                    </div>
+                    <div class="flex items-center gap-3">
+                        <button type="submit" class="inline-flex items-center justify-center rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2">Generate draft</button>
+                        <button type="button" id="blogClearButton" class="inline-flex items-center justify-center rounded-md border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">Clear</button>
+                    </div>
+                </form>
+                <div id="blogGeneratorStatus" class="mt-4 hidden text-sm"></div>
+                <div id="blogDraftEditor" class="mt-6 hidden"></div>
+            </section>
+        `;
+
+        attachBlogGeneratorHandlers(editableFields);
+    }
+
+    function attachBlogGeneratorHandlers(editableFields) {
+        const form = blogGeneratorContainer.querySelector('#blogPromptForm');
+        const clearButton = blogGeneratorContainer.querySelector('#blogClearButton');
+
+        if (!form) {
+            return;
+        }
+
+        form.addEventListener('submit', async (event) => {
+            event.preventDefault();
+            const keywordInput = form.querySelector('#blogKeywordInput');
+            const modelSelect = form.querySelector('#blogModelSelect');
+
+            if (!keywordInput) {
+                return;
+            }
+
+            const keyword = keywordInput.value.trim();
+            if (!keyword) {
+                setBlogGeneratorStatus('Please provide a keyword to guide the draft.', 'warning');
+                return;
+            }
+
+            lastKeyword = keyword;
+            await generateBlogDraft(keyword, modelSelect ? modelSelect.value : 'gpt-4o-mini', editableFields);
+        });
+
+        if (clearButton) {
+            clearButton.addEventListener('click', () => {
+                draftFieldValues = {};
+                rawAiContent = '';
+                lastKeyword = '';
+                renderBlogGenerator();
+                setBlogGeneratorStatus('Cleared the current draft.', 'info');
+            });
+        }
+    }
+
+    async function generateBlogDraft(keyword, model, editableFields) {
+        toggleGeneratorControls(true);
+        setBlogGeneratorStatus('Generating blog draft…', 'info');
+
+        try {
+            const metadata = serializeFieldMetadata(selectedCollectionFields);
+            const data = await callApi({
+                action: 'generate-blog',
+                prompt: keyword,
+                model,
+                fields: metadata,
+            });
+
+            rawAiContent = typeof data.content === 'string' ? data.content.trim() : '';
+            const parsed = safeParseJson(rawAiContent);
+
+            if (parsed && typeof parsed === 'object') {
+                draftFieldValues = mapDraftValues(parsed);
+                setBlogGeneratorStatus('AI draft generated. Review and refine the fields below.', 'success');
+            } else {
+                draftFieldValues = buildDraftFromRaw(rawAiContent || keyword, editableFields);
+                const warning = rawAiContent ? 'AI response was not valid JSON. Populated the first text field with raw content.' : 'AI response was empty. Started a blank draft instead.';
+                setBlogGeneratorStatus(warning, 'warning');
+            }
+
+            renderDraftEditor(editableFields);
+        } catch (error) {
+            setBlogGeneratorStatus(`Generation failed: ${error.message}`, 'error');
+        } finally {
+            toggleGeneratorControls(false);
+        }
+    }
+
+    function renderDraftEditor(editableFields) {
+        const container = blogGeneratorContainer.querySelector('#blogDraftEditor');
+        if (!container) {
+            return;
+        }
+
+        if (editableFields.length === 0) {
+            container.classList.add('hidden');
+            container.innerHTML = '';
+            return;
+        }
+
+        container.classList.remove('hidden');
+        container.innerHTML = `
+            <div class="border-t border-gray-200 pt-6">
+                <div class="flex items-start justify-between gap-4">
+                    <div>
+                        <h4 class="text-lg font-semibold text-gray-800">Draft fields</h4>
+                        <p class="text-sm text-gray-500">Review and edit before creating a Webflow draft.</p>
+                    </div>
+                    <button type="button" id="copyRawAiButton" class="text-xs font-medium text-indigo-600 hover:text-indigo-500">Copy raw AI output</button>
+                </div>
+                <div class="mt-4 space-y-4">
+                    ${editableFields.map((field) => renderFieldEditor(field)).join('')}
+                </div>
+                <div class="mt-5 flex flex-wrap items-center gap-3">
+                    <button type="button" id="createDraftButton" class="inline-flex items-center justify-center rounded-md bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2">Create Webflow draft</button>
+                    <button type="button" id="resetDraftButton" class="inline-flex items-center justify-center rounded-md border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">Reset fields</button>
+                </div>
+                <details class="mt-4">
+                    <summary class="cursor-pointer text-sm text-gray-500 hover:text-gray-700">Raw AI output</summary>
+                    <pre class="mt-2 max-h-64 overflow-auto rounded bg-gray-900 p-4 text-xs text-gray-100 whitespace-pre-wrap">${escapeHtml(rawAiContent || 'No AI output captured yet.')}</pre>
+                </details>
+            </div>
+        `;
+
+        attachDraftEditorEvents(editableFields);
+    }
+
+    function renderFieldEditor(field) {
+        const slug = field.slug ?? '';
+        const value = draftFieldValues[slug] ?? '';
+        const label = field.displayName ?? field.name ?? slug;
+        const isLongText = isLongTextField(field.type ?? '');
+        const required = field.isRequired === true || field.required === true;
+
+        if (isLongText) {
+            return `
+                <div class="flex flex-col gap-2">
+                    <label class="text-sm font-medium text-gray-700" for="draft-field-${escapeHtml(slug)}">${escapeHtml(label)} ${required ? '<span class="text-rose-600">*</span>' : ''}</label>
+                    <textarea id="draft-field-${escapeHtml(slug)}" data-draft-field="${escapeHtml(slug)}" rows="6" class="rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500">${escapeHtml(value)}</textarea>
+                    <p class="text-xs text-gray-400">Slug: ${escapeHtml(slug)}</p>
+                </div>
+            `;
+        }
+
+        return `
+            <div class="flex flex-col gap-2">
+                <label class="text-sm font-medium text-gray-700" for="draft-field-${escapeHtml(slug)}">${escapeHtml(label)} ${required ? '<span class="text-rose-600">*</span>' : ''}</label>
+                <input id="draft-field-${escapeHtml(slug)}" data-draft-field="${escapeHtml(slug)}" type="text" value="${escapeHtml(value)}" class="rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+                <p class="text-xs text-gray-400">Slug: ${escapeHtml(slug)}</p>
+            </div>
+        `;
+    }
+
+    function attachDraftEditorEvents(editableFields) {
+        const container = blogGeneratorContainer.querySelector('#blogDraftEditor');
+        if (!container) {
+            return;
+        }
+
+        container.querySelectorAll('[data-draft-field]').forEach((input) => {
+            input.addEventListener('input', (event) => {
+                const target = event.target;
+                const fieldSlug = target.dataset.draftField;
+                draftFieldValues[fieldSlug] = target.value;
+            });
+        });
+
+        const createDraftButton = container.querySelector('#createDraftButton');
+        if (createDraftButton) {
+            createDraftButton.addEventListener('click', async () => {
+                await submitDraftToWebflow(editableFields);
+            });
+        }
+
+        const resetDraftButton = container.querySelector('#resetDraftButton');
+        if (resetDraftButton) {
+            resetDraftButton.addEventListener('click', () => {
+                draftFieldValues = {};
+                rawAiContent = '';
+                renderDraftEditor(editableFields);
+                setBlogGeneratorStatus('Draft editor reset. Generate again to repopulate.', 'info');
+            });
+        }
+
+        const copyRawButton = container.querySelector('#copyRawAiButton');
+        if (copyRawButton) {
+            copyRawButton.addEventListener('click', async () => {
+                try {
+                    const text = rawAiContent || JSON.stringify(draftFieldValues, null, 2) || 'No AI output available yet.';
+                    await navigator.clipboard.writeText(text);
+                    setBlogGeneratorStatus('Raw AI output copied to clipboard.', 'success');
+                } catch (_error) {
+                    setBlogGeneratorStatus('Unable to copy to clipboard. Please copy manually from the raw output section.', 'warning');
+                }
+            });
+        }
+    }
+
+    async function submitDraftToWebflow(editableFields) {
+        if (!selectedCollection) {
+            setBlogGeneratorStatus('Please select a collection before creating a draft.', 'error');
+            return;
+        }
+
+        const payload = buildDraftPayload();
+        const missingRequired = findMissingRequiredFields(payload, editableFields);
+
+        if (missingRequired.length > 0) {
+            setBlogGeneratorStatus(`Fill in required fields before submitting: ${missingRequired.join(', ')}`, 'warning');
+            return;
+        }
+
+        setBlogGeneratorStatus('Creating Webflow draft…', 'info');
+        toggleDraftControls(true);
+
+        try {
+            await callApi({
+                action: 'create-draft',
+                targetCollectionId: selectedCollection.id,
+                fields: payload,
+            });
+            setBlogGeneratorStatus('Draft created in Webflow. Review it inside your CMS drafts.', 'success');
+        } catch (error) {
+            setBlogGeneratorStatus(`Draft creation failed: ${error.message}`, 'error');
+        } finally {
+            toggleDraftControls(false);
+        }
+    }
+
+    function buildDraftPayload() {
+        const payload = {};
+
+        Object.entries(draftFieldValues).forEach(([slug, value]) => {
+            if (typeof value === 'string') {
+                payload[slug] = value.trim();
+            } else if (value !== null && value !== undefined) {
+                payload[slug] = value;
+            }
+        });
+
+        if (!payload.name || payload.name.length === 0) {
+            const fallbackTitle = lastKeyword ? capitalizeFirstLetter(lastKeyword) : 'AI Draft';
+            payload.name = fallbackTitle;
+        }
+
+        if (!payload.slug && payload.name) {
+            payload.slug = slugify(payload.name);
+        } else if (payload.slug) {
+            payload.slug = slugify(payload.slug);
+        }
+
+        return payload;
+    }
+
+    function findMissingRequiredFields(payload, editableFields) {
+        const editableSlugs = new Set(editableFields.map((field) => field.slug));
+
+        return selectedCollectionFields
+            .filter((field) => (field.isRequired === true || field.required === true) && editableSlugs.has(field.slug))
+            .filter((field) => {
+                const value = payload[field.slug];
+                return value === undefined || value === null || String(value).trim() === '';
+            })
+            .map((field) => field.displayName ?? field.slug ?? 'Field');
+    }
+
+    function highlightSelectedSite(listItem) {
+        document.querySelectorAll('#sitesListContainer li').forEach((li) => li.classList.remove('ring-2', 'ring-blue-500'));
+        if (listItem) {
+            listItem.classList.add('ring-2', 'ring-blue-500');
+        }
+    }
+
+    function highlightSelectedCollection(listItem) {
+        document.querySelectorAll('#collectionsListContainer li').forEach((li) => li.classList.remove('ring-2', 'ring-indigo-500'));
+        if (listItem) {
+            listItem.classList.add('ring-2', 'ring-indigo-500');
+        }
+    }
+
+    function resetCollectionsUI(message = 'Select a site to load its collections.') {
+        collectionsListContainer.innerHTML = `<p class="text-center text-gray-500">${escapeHtml(message)}</p>`;
+    }
+
+    function resetFieldsUI(message = 'Once you pick a collection, its fields appear here.') {
+        if (!fieldsListContainer) {
+            return;
+        }
+        fieldsListContainer.innerHTML = `<p class="text-center text-gray-500">${escapeHtml(message)}</p>`;
+    }
+
+    function resetBlogGenerator(message = 'Select a collection to enable the AI blog generator.') {
+        if (!blogGeneratorContainer) {
+            return;
+        }
+        blogGeneratorContainer.innerHTML = `<p class="text-center text-gray-500">${escapeHtml(message)}</p>`;
+    }
+
+    function toggleGeneratorControls(disabled) {
+        const form = blogGeneratorContainer.querySelector('#blogPromptForm');
+        if (!form) {
+            return;
+        }
+
+        form.querySelectorAll('button, input, select, textarea').forEach((element) => {
+            element.disabled = disabled;
+        });
+    }
+
+    function toggleDraftControls(disabled) {
+        const container = blogGeneratorContainer.querySelector('#blogDraftEditor');
+        if (!container) {
+            return;
+        }
+
+        container.querySelectorAll('button, input, textarea').forEach((element) => {
+            element.disabled = disabled;
+        });
+    }
+
+    function setBlogGeneratorStatus(message, variant = 'info') {
+        const statusElement = blogGeneratorContainer.querySelector('#blogGeneratorStatus');
+        if (!statusElement) {
+            return;
+        }
+
+        if (!message) {
+            statusElement.classList.add('hidden');
+            statusElement.textContent = '';
+            return;
+        }
+
+        const variantClasses = {
+            info: 'text-blue-600',
+            success: 'text-emerald-600',
+            warning: 'text-amber-600',
+            error: 'text-rose-600',
+        };
+
+        statusElement.className = `mt-4 text-sm ${variantClasses[variant] ?? 'text-gray-600'}`;
+        statusElement.textContent = message;
+        statusElement.classList.remove('hidden');
+    }
+
+    function safeParseJson(text) {
+        try {
+            return JSON.parse(text);
+        } catch (_error) {
+            return null;
+        }
+    }
+
+    function mapDraftValues(parsed) {
+        const values = {};
+
+        selectedCollectionFields.forEach((field) => {
+            if (!isFieldEditable(field)) {
+                return;
+            }
+
+            const slug = field.slug;
+            if (!slug) {
+                return;
+            }
+
+            const rawValue = parsed[slug];
+            values[slug] = valueToEditableString(rawValue);
+        });
+
+        return values;
+    }
+
+    function buildDraftFromRaw(raw, editableFields) {
+        const values = {};
+
+        if (editableFields.length > 0) {
+            const firstField = editableFields[0];
+            values[firstField.slug] = raw;
+        }
+
+        const nameField = editableFields.find((field) => field.slug === 'name');
+        if (nameField && !values[nameField.slug]) {
+            values[nameField.slug] = capitalizeFirstLetter(lastKeyword || raw || 'AI Draft');
+        }
+
+        return values;
+    }
+
+    function valueToEditableString(value) {
+        if (value === null || value === undefined) {
+            return '';
+        }
+        if (typeof value === 'string') {
+            return value;
+        }
+        if (Array.isArray(value)) {
+            return value.map((item) => (typeof item === 'string' ? item : JSON.stringify(item))).join('\n');
+        }
+        if (typeof value === 'object') {
+            return JSON.stringify(value, null, 2);
+        }
+        return String(value);
+    }
+
+    function isFieldEditable(field) {
+        return TEXT_FIELD_TYPES.has(field.type ?? '');
+    }
+
+    function isLongTextField(type) {
+        return LONG_TEXT_FIELD_TYPES.has(type);
+    }
+
+    function serializeFieldMetadata(fields) {
+        return fields.map((field) => ({
+            slug: field.slug ?? '',
+            displayName: field.displayName ?? field.name ?? '',
+            type: field.type ?? 'unknown',
+            required: field.isRequired === true || field.required === true,
+        }));
+    }
+
+    function normalizeCollectionResponse(data) {
+        if (data && typeof data === 'object') {
+            if (data.collection && typeof data.collection === 'object') {
+                return data.collection;
+            }
+        }
+        return data;
+    }
+
+    function capitalizeFirstLetter(text) {
+        if (!text) {
+            return '';
+        }
+        return text.charAt(0).toUpperCase() + text.slice(1);
+    }
+
+    function slugify(text) {
+        return text
+            .toLowerCase()
+            .trim()
+            .replace(/[^a-z0-9]+/g, '-')
+            .replace(/^-+|-+$/g, '')
+            .slice(0, 64);
+    }
+
+    function escapeHtml(value) {
+        return String(value)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;');
     }
 });
