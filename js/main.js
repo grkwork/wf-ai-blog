@@ -471,6 +471,7 @@ document.addEventListener('DOMContentLoaded', () => {
                             <optgroup label="OpenAI">
                                 <option value="openai:gpt-4o-mini" selected>GPT-4o Mini (fast)</option>
                                 <option value="openai:o4-mini">o4-mini (higher quality)</option>
+                                <option value="openai:gpt-5">GPT-5 (latest, most advanced)</option>
                             </optgroup>
                             <optgroup label="Google Gemini">
                                 <option value="gemini:gemini-2.5-flash">Gemini 2.5 Flash (fast, versatile)</option>
