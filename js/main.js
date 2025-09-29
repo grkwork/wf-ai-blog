@@ -190,7 +190,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 return;
             }
 
-            const collectionId = field.collectionId ?? field.referenceCollectionId ?? field.collection ?? null;
+            const collectionId = field.collectionId ?? field.referenceCollectionId ?? field.collection ?? field.collectionIdSlug ?? null;
             if (!collectionId) {
                 return;
             }
