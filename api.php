@@ -1,6 +1,17 @@
 <?php
 require 'vendor/autoload.php';
 
+$configPath = __DIR__ . '/../config.php';
+if (file_exists($configPath)) {
+    include_once $configPath;
+
+    if (isset($OPENAI_API_KEY) && is_string($OPENAI_API_KEY) && $OPENAI_API_KEY !== '') {
+        putenv('OPENAI_API_KEY=' . $OPENAI_API_KEY);
+        $_ENV['OPENAI_API_KEY'] = $OPENAI_API_KEY;
+        $_SERVER['OPENAI_API_KEY'] = $OPENAI_API_KEY;
+    }
+}
+
 use GuzzleHttp\Client;
 use GuzzleHttp\Exception\RequestException;
 
@@ -102,7 +113,7 @@ function handleCollectionDetails(Client $client, string $token, ?string $collect
 
 function handleGenerateBlog(string $token, ?string $prompt, array $fields, string $model): void
 {
-    $apiKey = getenv('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');
+    $apiKey = getenv('OPENAI_API_KEY');
 
     if (!$apiKey) {
         throw new RuntimeException('Missing server-side OpenAI API key.');
