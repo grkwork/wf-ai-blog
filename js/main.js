@@ -507,6 +507,21 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
 
+    function preserveReferenceSelections(editableFields) {
+        const referenceFields = editableFields.filter((field) => REFERENCE_FIELD_TYPES.has(field.type ?? ''));
+        
+        referenceFields.forEach((field) => {
+            const slug = field.slug ?? '';
+            const userSelectedId = referenceSelection[slug];
+            
+            if (userSelectedId) {
+                // Override AI-generated value with user-selected reference ID
+                draftFieldValues[slug] = userSelectedId;
+                console.log(`Preserved user selection for ${slug}: ${userSelectedId}`);
+            }
+        });
+    }
+
     function updateDraftFieldDisplay(slug, selectedId) {
         // Find the draft field input for this reference field
         const draftFieldInput = document.querySelector(`#draft-field-${slug}`);
@@ -520,6 +535,20 @@ document.addEventListener('DOMContentLoaded', () => {
                 const selectedItem = items.find(item => (item._id ?? item.id) === selectedId);
                 const selectedName = selectedItem?.name ?? selectedItem?.displayName ?? selectedItem?.title ?? selectedItem?.fieldData?.name ?? selectedItem?.fieldData?.displayName ?? selectedItem?.fieldData?.title ?? selectedId;
                 displaySpan.textContent = `${selectedName} (${selectedId})`;
+            }
+        }
+    }
+
+    function updateReferenceDisplayOnEdit(slug, newId) {
+        // Update the display name when user manually edits the reference field
+        const draftFieldInput = document.querySelector(`#draft-field-${slug}`);
+        if (draftFieldInput) {
+            const displaySpan = draftFieldInput.parentElement.querySelector('span');
+            if (displaySpan) {
+                const items = referenceCollections[slug] ?? [];
+                const selectedItem = items.find(item => (item._id ?? item.id) === newId);
+                const selectedName = selectedItem?.name ?? selectedItem?.displayName ?? selectedItem?.title ?? selectedItem?.fieldData?.name ?? selectedItem?.fieldData?.displayName ?? selectedItem?.fieldData?.title ?? newId;
+                displaySpan.textContent = `${selectedName} (${newId})`;
             }
         }
     }
@@ -668,6 +697,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
             await fillImagePlaceholders(keyword, editableFields);
             selectTopMatchesForReferences();
+            
+            // Preserve user-selected reference values after AI processing
+            preserveReferenceSelections(editableFields);
+            
             setBlogGeneratorStatus('Draft ready. Review, tweak and push to Webflow.', 'success');
             renderDraftEditor(editableFields);
         } catch (error) {
@@ -770,10 +803,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 <div class="flex flex-col gap-2">
                     <label class="text-sm font-medium text-gray-700" for="draft-field-${escapeHtml(slug)}">${escapeHtml(label)} ${required ? '<span class="text-rose-600">*</span>' : ''}</label>
                     <div class="flex items-center gap-2">
-                        <input id="draft-field-${escapeHtml(slug)}" data-draft-field="${escapeHtml(slug)}" type="text" value="${escapeHtml(selectedId)}" class="flex-1 rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500" readonly />
+                        <input id="draft-field-${escapeHtml(slug)}" data-draft-field="${escapeHtml(slug)}" type="text" value="${escapeHtml(selectedId)}" placeholder="Enter reference ID" class="flex-1 rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500" />
                         <span class="text-sm text-gray-600 bg-gray-100 px-2 py-1 rounded">${escapeHtml(selectedName)} (${escapeHtml(selectedId)})</span>
                     </div>
-                    <p class="text-xs text-gray-400">Reference ID: ${escapeHtml(selectedId)} (auto-populated from selection above)</p>
+                    <p class="text-xs text-gray-400">Reference ID: ${escapeHtml(selectedId)} (auto-populated from selection above, but you can edit it)</p>
                 </div>
             `;
         }
@@ -795,10 +828,18 @@ document.addEventListener('DOMContentLoaded', () => {
 
         container.querySelectorAll('[data-draft-field]').forEach((input) => {
             const fieldSlug = input.dataset.draftField;
+            const field = editableFields.find(f => f.slug === fieldSlug);
 
         if (input.type === 'checkbox') {
             input.addEventListener('change', (event) => {
                 draftFieldValues[fieldSlug] = event.target.checked;
+            });
+        } else if (field && REFERENCE_FIELD_TYPES.has(field.type ?? '')) {
+            // Special handling for reference fields
+            input.addEventListener('input', (event) => {
+                const newId = event.target.value;
+                draftFieldValues[fieldSlug] = newId;
+                updateReferenceDisplayOnEdit(fieldSlug, newId);
             });
         } else {
             input.addEventListener('input', (event) => {
