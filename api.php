@@ -4,12 +4,6 @@ require 'vendor/autoload.php';
 $configPath = __DIR__ . '/../config.php';
 if (file_exists($configPath)) {
     include_once $configPath;
-
-    if (isset($OPENAI_API_KEY) && is_string($OPENAI_API_KEY) && $OPENAI_API_KEY !== '') {
-        putenv('OPENAI_API_KEY=' . $OPENAI_API_KEY);
-        $_ENV['OPENAI_API_KEY'] = $OPENAI_API_KEY;
-        $_SERVER['OPENAI_API_KEY'] = $OPENAI_API_KEY;
-    }
 }
 
 use GuzzleHttp\Client;
@@ -56,7 +50,7 @@ try {
             handleCollectionDetails($client, $token, $collectionId);
             break;
         case 'generate-blog':
-            handleGenerateBlog($token, $blogPrompt, $selectedFields, $blogModel);
+            handleGenerateBlog($token, $blogPrompt, $selectedFields, $blogModel, $OPENAI_API_KEY ?? null);
             break;
         case 'create-draft':
             handleCreateDraft($client, $token, $blogCollectionId, $selectedFields);
@@ -111,9 +105,9 @@ function handleCollectionDetails(Client $client, string $token, ?string $collect
     outputResponseBody($response);
 }
 
-function handleGenerateBlog(string $token, ?string $prompt, array $fields, string $model): void
+function handleGenerateBlog(string $token, ?string $prompt, array $fields, string $model, ?string $explicitApiKey): void
 {
-    $apiKey = getenv('OPENAI_API_KEY');
+    $apiKey = $explicitApiKey ?? getenv('OPENAI_API_KEY');
 
     if (!$apiKey) {
         throw new RuntimeException('Missing server-side OpenAI API key.');
