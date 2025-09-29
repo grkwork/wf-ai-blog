@@ -8,6 +8,7 @@ if (file_exists($configPath)) {
 
 use GuzzleHttp\Client;
 use GuzzleHttp\Exception\RequestException;
+use GuzzleHttp\Exception\GuzzleException;
 use OpenAI;
 
 header('Content-Type: application/json');
@@ -28,7 +29,7 @@ $collectionId = $input['collectionId'] ?? null;
 $selectedFields = $input['fields'] ?? [];
 $action = $input['action'] ?? 'list';
 $blogPrompt = $input['prompt'] ?? null;
-$blogModel = $input['model'] ?? 'gpt-4o-mini';
+$blogModel = $input['model'] ?? 'openai:gpt-4o-mini';
 $blogCollectionId = $input['targetCollectionId'] ?? null;
 
 if (!$token) {
@@ -51,7 +52,7 @@ try {
             handleCollectionDetails($client, $token, $collectionId);
             break;
         case 'generate-blog':
-            handleGenerateBlog($token, $blogPrompt, $selectedFields, $blogModel, $OPENAI_API_KEY ?? null);
+            handleGenerateBlog($token, $blogPrompt, $selectedFields, $blogModel, $OPENAI_API_KEY ?? null, $GEMINI_API_KEY ?? null);
             break;
         case 'create-draft':
             handleCreateDraft($client, $token, $blogCollectionId, $selectedFields);
@@ -106,29 +107,81 @@ function handleCollectionDetails(Client $client, string $token, ?string $collect
     outputResponseBody($response);
 }
 
-function handleGenerateBlog(string $token, ?string $prompt, array $fields, string $model, ?string $explicitApiKey): void
+function handleGenerateBlog(string $token, ?string $prompt, array $fields, string $modelSelection, ?string $openAiApiKey, ?string $geminiApiKey): void
 {
-    $apiKey = $explicitApiKey ?? getenv('OPENAI_API_KEY');
-
-    if (!$apiKey) {
-        throw new RuntimeException('Missing server-side OpenAI API key.');
-    }
-
     if ($prompt === null || trim($prompt) === '') {
         throw new RuntimeException('Prompt is required to generate blog content.');
     }
 
-    $client = OpenAI::client($apiKey);
+    [$provider, $model] = parseModelSelection($modelSelection);
+    $promptText = buildBlogPrompt($prompt, $fields);
 
-    $response = $client->responses()->create([
-        'model' => $model,
-        'input' => buildBlogPrompt($prompt, $fields),
-    ]);
+    switch ($provider) {
+        case 'openai':
+            $apiKey = $openAiApiKey ?? getenv('OPENAI_API_KEY');
+            if (!$apiKey) {
+                throw new RuntimeException('Missing server-side OpenAI API key.');
+            }
 
-    $generated = $response->output[0]->content[0]->text ?? '';
+            $client = OpenAI::client($apiKey);
+
+            $response = $client->responses()->create([
+                'model' => $model,
+                'input' => $promptText,
+            ]);
+
+            $generated = $response->output[0]->content[0]->text ?? '';
+            break;
+
+        case 'gemini':
+            $apiKey = $geminiApiKey ?? getenv('GEMINI_API_KEY');
+            if (!$apiKey) {
+                throw new RuntimeException('Missing server-side Gemini API key.');
+            }
+
+            $generated = generateWithGemini($model, $promptText, $apiKey);
+            break;
+
+        default:
+            throw new RuntimeException('Unsupported AI provider selected.');
+    }
 
     http_response_code(200);
     echo json_encode(['content' => $generated]);
+}
+
+function generateWithGemini(string $model, string $promptText, string $apiKey): string
+{
+    $httpClient = new Client();
+
+    try {
+        $response = $httpClient->request('POST', "https://generativelanguage.googleapis.com/v1beta/models/{$model}:generateContent", [
+            'query' => ['key' => $apiKey],
+            'json' => [
+                'contents' => [
+                    [
+                        'role' => 'user',
+                        'parts' => [
+                            ['text' => $promptText],
+                        ],
+                    ],
+                ],
+            ],
+            'timeout' => 30,
+        ]);
+    } catch (GuzzleException $exception) {
+        throw new RuntimeException('Gemini request failed: ' . $exception->getMessage(), 0, $exception);
+    }
+
+    $payload = json_decode($response->getBody()->getContents(), true);
+
+    $text = $payload['candidates'][0]['content']['parts'][0]['text'] ?? '';
+
+    if (!is_string($text) || trim($text) === '') {
+        throw new RuntimeException('Gemini API returned an unexpected response.');
+    }
+
+    return $text;
 }
 
 function handleCreateDraft(Client $client, string $token, ?string $collectionId, array $fields): void

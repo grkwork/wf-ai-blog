@@ -336,10 +336,16 @@ document.addEventListener('DOMContentLoaded', () => {
                         <input id="blogKeywordInput" type="text" required placeholder="e.g. Sustainable web design" class="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500" />
                     </div>
                     <div>
-                        <label for="blogModelSelect" class="block text-sm font-medium text-gray-700">AI model</label>
+                        <label for="blogModelSelect" class="block text-sm font-medium text-gray-700">AI provider & model</label>
                         <select id="blogModelSelect" class="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500">
-                            <option value="gpt-4o-mini" selected>GPT-4o Mini (fast)</option>
-                            <option value="o4-mini">o4-mini (higher quality)</option>
+                            <optgroup label="OpenAI">
+                                <option value="openai:gpt-4o-mini" selected>GPT-4o Mini (fast)</option>
+                                <option value="openai:o4-mini">o4-mini (higher quality)</option>
+                            </optgroup>
+                            <optgroup label="Google Gemini">
+                                <option value="gemini:gemini-1.5-flash-latest">Gemini 1.5 Flash (fast, economical)</option>
+                                <option value="gemini:gemini-1.5-pro-latest">Gemini 1.5 Pro (higher quality)</option>
+                            </optgroup>
                         </select>
                     </div>
                     <div class="text-xs text-gray-500">
