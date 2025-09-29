@@ -184,6 +184,17 @@ function generateWithGemini(string $model, string $promptText, string $apiKey): 
     return $text;
 }
 
+function parseModelSelection(string $selection): array
+{
+    $parts = explode(':', $selection, 2);
+
+    if (count($parts) !== 2) {
+        return ['openai', $selection];
+    }
+
+    return [$parts[0] ?: 'openai', $parts[1] ?: 'gpt-4o-mini'];
+}
+
 function handleCreateDraft(Client $client, string $token, ?string $collectionId, array $fields): void
 {
     if ($collectionId === null) {
