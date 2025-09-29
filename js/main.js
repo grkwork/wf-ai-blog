@@ -497,6 +497,28 @@ document.addEventListener('DOMContentLoaded', () => {
         `;
 
         attachBlogGeneratorHandlers(editableFields);
+        
+        // Initialize reference field selections
+        initializeReferenceSelections(editableFields);
+    }
+
+    function initializeReferenceSelections(editableFields) {
+        const referenceFields = editableFields.filter((field) => REFERENCE_FIELD_TYPES.has(field.type ?? ''));
+        
+        referenceFields.forEach((field) => {
+            const slug = field.slug ?? '';
+            const items = referenceCollections[slug] ?? [];
+            
+            if (items.length > 0) {
+                const firstItemId = items[0]?._id ?? items[0]?.id ?? '';
+                
+                // Set initial selection if not already set
+                if (!referenceSelection[slug]) {
+                    referenceSelection[slug] = firstItemId;
+                    draftFieldValues[slug] = firstItemId;
+                }
+            }
+        });
     }
 
     function renderReferenceSelector(field) {
@@ -527,6 +549,22 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!form) {
             return;
         }
+
+        // Attach event listeners for reference selectors
+        blogGeneratorContainer.querySelectorAll('[data-reference-slug]').forEach((select) => {
+            select.addEventListener('change', (event) => {
+                const slug = event.target.dataset.referenceSlug;
+                const selectedId = event.target.value;
+                
+                // Update reference selection tracking
+                referenceSelection[slug] = selectedId;
+                
+                // Auto-populate the corresponding draft field
+                draftFieldValues[slug] = selectedId;
+                
+                console.log(`Reference field ${slug} updated to: ${selectedId}`);
+            });
+        });
 
         form.addEventListener('submit', async (event) => {
             event.preventDefault();
@@ -684,11 +722,19 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         if (REFERENCE_FIELD_TYPES.has(field.type ?? '')) {
+            const items = referenceCollections[slug] ?? [];
+            const selectedId = draftFieldValues[slug] ?? referenceSelection[slug] ?? items[0]?._id ?? items[0]?.id ?? '';
+            const selectedItem = items.find(item => (item._id ?? item.id) === selectedId);
+            const selectedName = selectedItem?.name ?? selectedItem?.displayName ?? selectedId;
+
             return `
                 <div class="flex flex-col gap-2">
                     <label class="text-sm font-medium text-gray-700" for="draft-field-${escapeHtml(slug)}">${escapeHtml(label)} ${required ? '<span class="text-rose-600">*</span>' : ''}</label>
-                    <input id="draft-field-${escapeHtml(slug)}" data-draft-field="${escapeHtml(slug)}" type="text" value="${escapeHtml(value)}" placeholder="Paste the referenced item ID" class="rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500" />
-                    <p class="text-xs text-gray-400">Enter the reference ID (e.g., another item's _id). Slug: ${escapeHtml(slug)}</p>
+                    <div class="flex items-center gap-2">
+                        <input id="draft-field-${escapeHtml(slug)}" data-draft-field="${escapeHtml(slug)}" type="text" value="${escapeHtml(selectedId)}" class="flex-1 rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500" readonly />
+                        <span class="text-sm text-gray-600 bg-gray-100 px-2 py-1 rounded">${escapeHtml(selectedName)}</span>
+                    </div>
+                    <p class="text-xs text-gray-400">Reference ID: ${escapeHtml(selectedId)} (auto-populated from selection above)</p>
                 </div>
             `;
         }
