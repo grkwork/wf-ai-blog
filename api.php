@@ -52,6 +52,9 @@ try {
         case 'collection-details':
             handleCollectionDetails($client, $token, $collectionId);
             break;
+        case 'list-reference-items':
+            handleListReferenceItems($client, $token, $collectionId);
+            break;
         case 'generate-blog':
             handleGenerateBlog($token, $blogPrompt, $selectedFields, $blogModel, $OPENAI_API_KEY ?? null, $GEMINI_API_KEY ?? null);
             break;
@@ -102,6 +105,19 @@ function handleCollectionDetails(Client $client, string $token, ?string $collect
     }
 
     $response = $client->request('GET', "https://api.webflow.com/v2/collections/{$collectionId}", [
+        'headers' => baseWebflowHeaders($token),
+    ]);
+
+    outputResponseBody($response);
+}
+
+function handleListReferenceItems(Client $client, string $token, ?string $collectionId): void
+{
+    if ($collectionId === null) {
+        throw new RuntimeException('collectionId is required to list reference items.');
+    }
+
+    $response = $client->request('GET', "https://api.webflow.com/v2/collections/{$collectionId}/items", [
         'headers' => baseWebflowHeaders($token),
     ]);
 

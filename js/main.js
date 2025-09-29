@@ -52,6 +52,8 @@ document.addEventListener('DOMContentLoaded', () => {
     let draftFieldValues = {};
     let rawAiContent = '';
     let lastKeyword = '';
+    const referenceCollections = {};
+    const referenceSelection = {};
 
     resetCollectionsUI();
     resetFieldsUI();
@@ -163,12 +165,46 @@ document.addEventListener('DOMContentLoaded', () => {
 
             selectedCollectionFields = Array.isArray(collection.fields) ? collection.fields : [];
 
+            await populateReferenceMetadata();
             displayFields(selectedCollectionFields);
             renderBlogGenerator();
         } catch (error) {
             fieldsListContainer.innerHTML = `<p class="text-center text-red-600">${escapeHtml(error.message)}</p>`;
             renderBlogGenerator('Unable to load collection fields.');
         }
+    }
+
+    async function populateReferenceMetadata() {
+        if (!Array.isArray(selectedCollectionFields)) {
+            return;
+        }
+
+        const referenceFields = selectedCollectionFields.filter((field) => REFERENCE_FIELD_TYPES.has(field.type ?? ''));
+        if (referenceFields.length === 0) {
+            return;
+        }
+
+        await Promise.all(referenceFields.map(async (field) => {
+            const slug = field.slug ?? '';
+            if (!slug || referenceCollections[slug]) {
+                return;
+            }
+
+            const collectionId = field.collectionId ?? field.referenceCollectionId ?? field.collection ?? null;
+            if (!collectionId) {
+                return;
+            }
+
+            try {
+                const response = await callApi({ action: 'list-reference-items', collectionId });
+                const items = Array.isArray(response.items) ? response.items : [];
+                referenceCollections[slug] = items;
+                referenceSelection[slug] = items[0]?._id ?? items[0]?.id ?? '';
+            } catch (_error) {
+                referenceCollections[slug] = [];
+                referenceSelection[slug] = '';
+            }
+        }));
     }
 
     async function callApi(body) {
@@ -322,20 +358,14 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         const editableFields = selectedCollectionFields.filter(isFieldEditable);
-        if (editableFields.length === 0) {
-            blogGeneratorContainer.innerHTML = `
-                <div class="p-6 bg-white border border-amber-200 text-amber-700 rounded-md">
-                    <h3 class="text-lg font-semibold mb-2">AI generation unavailable</h3>
-                    <p class="text-sm">This collection does not contain text-based fields that can be populated automatically. You can still create items directly in Webflow.</p>
-                </div>
-            `;
-            return;
-        }
 
-        const unsupportedRequired = selectedCollectionFields.filter((field) => {
-            const required = field.isRequired === true || field.required === true;
-            return required && !isFieldEditable(field);
-        });
+        const referenceFields = editableFields.filter((field) => REFERENCE_FIELD_TYPES.has(field.type ?? ''));
+        const referenceSelectors = referenceFields.length > 0
+            ? `<div class="space-y-3">
+                    <h4 class="text-sm font-semibold text-gray-700">Reference Collections</h4>
+                    ${referenceFields.map((field) => renderReferenceSelector(field)).join('')}
+               </div>`
+            : '';
 
         blogGeneratorContainer.innerHTML = `
             <section class="bg-white border border-gray-200 rounded-lg p-6 shadow-sm">
@@ -343,6 +373,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     <h3 class="text-xl font-semibold text-gray-800">AI Blog Draft Generator</h3>
                     <p class="text-sm text-gray-600">Generate draft content for <span class="font-medium">${escapeHtml(selectedCollection.displayName ?? 'this collection')}</span>.</p>
                 </div>
+                ${referenceSelectors}
                 <form id="blogPromptForm" class="mt-4 space-y-4">
                     <div>
                         <label for="blogKeywordInput" class="block text-sm font-medium text-gray-700">Focus keyword</label>
@@ -356,7 +387,7 @@ document.addEventListener('DOMContentLoaded', () => {
                                 <option value="openai:o4-mini">o4-mini (higher quality)</option>
                             </optgroup>
                             <optgroup label="Google Gemini">
-                                <option value="gemini:gemini-2.5-flash" selected>Gemini 2.5 Flash (fast, versatile)</option>
+                                <option value="gemini:gemini-2.5-flash">Gemini 2.5 Flash (fast, versatile)</option>
                                 <option value="gemini:gemini-2.5-pro">Gemini 2.5 Pro (higher quality)</option>
                             </optgroup>
                         </select>
@@ -379,6 +410,27 @@ document.addEventListener('DOMContentLoaded', () => {
         `;
 
         attachBlogGeneratorHandlers(editableFields);
+    }
+
+    function renderReferenceSelector(field) {
+        const slug = field.slug ?? '';
+        const label = field.displayName ?? field.name ?? slug;
+        const items = referenceCollections[slug] ?? [];
+        const selected = referenceSelection[slug] ?? items[0]?._id ?? items[0]?.id ?? '';
+
+        return `
+            <div>
+                <label class="block text-sm font-medium text-gray-700" for="reference-select-${escapeHtml(slug)}">${escapeHtml(label)} (Reference)</label>
+                <select id="reference-select-${escapeHtml(slug)}" data-reference-slug="${escapeHtml(slug)}" class="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    ${items.map((item) => {
+                        const id = item._id ?? item.id ?? '';
+                        const name = item.name ?? item.displayName ?? id;
+                        const isSelected = id === selected;
+                        return `<option value="${escapeHtml(id)}" ${isSelected ? 'selected' : ''}>${escapeHtml(name)}</option>`;
+                    }).join('')}
+                </select>
+            </div>
+        `;
     }
 
     function attachBlogGeneratorHandlers(editableFields) {
@@ -574,6 +626,14 @@ document.addEventListener('DOMContentLoaded', () => {
                     draftFieldValues[fieldSlug] = event.target.value;
                 });
             }
+        });
+
+        container.querySelectorAll('[data-reference-slug]').forEach((select) => {
+            select.addEventListener('change', (event) => {
+                const slug = event.target.dataset.referenceSlug;
+                referenceSelection[slug] = event.target.value;
+                draftFieldValues[slug] = event.target.value;
+            });
         });
 
         const createDraftButton = container.querySelector('#createDraftButton');
@@ -801,7 +861,9 @@ document.addEventListener('DOMContentLoaded', () => {
             } else if (IMAGE_FIELD_TYPES.has(field.type ?? '')) {
                 values[slug] = normalizeImage(rawValue);
             } else if (REFERENCE_FIELD_TYPES.has(field.type ?? '')) {
-                values[slug] = normalizeReference(rawValue);
+                const candidate = normalizeReference(rawValue);
+                values[slug] = candidate || referenceSelection[slug] || referenceCollections[slug]?.[0]?._id || referenceCollections[slug]?.[0]?.id || '';
+                referenceSelection[slug] = values[slug];
             } else {
                 values[slug] = valueToEditableString(rawValue);
             }
@@ -881,7 +943,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
             const raw = draftFieldValues[slug];
             if (!raw) {
-                draftFieldValues[slug] = 'unable to get data';
+                const defaultId = referenceSelection[slug] || referenceCollections[slug]?.[0]?._id || referenceCollections[slug]?.[0]?.id || '';
+                draftFieldValues[slug] = defaultId || 'unable to get data';
+                referenceSelection[slug] = draftFieldValues[slug];
             }
         });
     }
