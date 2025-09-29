@@ -263,7 +263,11 @@ function handleCreateDraft(Client $client, string $token, ?string $collectionId,
         throw new RuntimeException('collectionId is required to create a draft.');
     }
 
-    $payload = ['fields' => $fields, 'isDraft' => true];
+    // Webflow API v2 expects fieldData structure
+    $payload = [
+        'fieldData' => $fields,
+        'isDraft' => true
+    ];
 
     $response = $client->request('POST', "https://api.webflow.com/v2/collections/{$collectionId}/items", [
         'headers' => baseWebflowHeaders($token),
