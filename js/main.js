@@ -14,7 +14,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const apiUrl = 'https://lightslategray-spoonbill-600904.hostingersite.com/api.php';
 
-    const TEXT_FIELD_TYPES = new Set([
+    const SUPPORTED_FIELD_TYPES = new Set([
         'PlainText',
         'RichText',
         'TextArea',
@@ -23,6 +23,11 @@ document.addEventListener('DOMContentLoaded', () => {
         'LongText',
         'Number',
         'Date',
+        'Slug',
+        'Switch',
+        'Boolean',
+        'Image',
+        'Reference',
     ]);
 
     const LONG_TEXT_FIELD_TYPES = new Set([
@@ -32,6 +37,10 @@ document.addEventListener('DOMContentLoaded', () => {
         'MultiLinePlainText',
         'LongText',
     ]);
+
+    const BOOLEAN_FIELD_TYPES = new Set(['Switch', 'Boolean']);
+    const IMAGE_FIELD_TYPES = new Set(['Image']);
+    const REFERENCE_FIELD_TYPES = new Set(['Reference']);
 
     let selectedSiteId = null;
     let selectedCollection = null;
@@ -424,6 +433,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             if (parsed && typeof parsed === 'object') {
                 draftFieldValues = mapDraftValues(parsed);
+                fillMissingFieldsFromRaw(rawAiContent, editableFields);
                 setBlogGeneratorStatus('AI draft generated. Review and refine the fields below.', 'success');
             } else {
                 draftFieldValues = buildDraftFromRaw(rawAiContent || keyword, editableFields);
@@ -495,6 +505,36 @@ document.addEventListener('DOMContentLoaded', () => {
             `;
         }
 
+        if (IMAGE_FIELD_TYPES.has(field.type ?? '')) {
+            return `
+                <div class="flex flex-col gap-2">
+                    <label class="text-sm font-medium text-gray-700" for="draft-field-${escapeHtml(slug)}">${escapeHtml(label)} ${required ? '<span class="text-rose-600">*</span>' : ''}</label>
+                    <input id="draft-field-${escapeHtml(slug)}" data-draft-field="${escapeHtml(slug)}" type="url" value="${escapeHtml(value)}" placeholder="https://example.com/image.jpg" class="rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+                    <p class="text-xs text-gray-400">Enter a full image URL. Slug: ${escapeHtml(slug)}</p>
+                </div>
+            `;
+        }
+
+        if (BOOLEAN_FIELD_TYPES.has(field.type ?? '')) {
+            const checked = value === true || value === 'true' || value === '1';
+            return `
+                <div class="flex items-center justify-between gap-3">
+                    <label class="text-sm font-medium text-gray-700" for="draft-field-${escapeHtml(slug)}">${escapeHtml(label)}</label>
+                    <input id="draft-field-${escapeHtml(slug)}" data-draft-field="${escapeHtml(slug)}" type="checkbox" ${checked ? 'checked' : ''} class="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500" />
+                </div>
+            `;
+        }
+
+        if (REFERENCE_FIELD_TYPES.has(field.type ?? '')) {
+            return `
+                <div class="flex flex-col gap-2">
+                    <label class="text-sm font-medium text-gray-700" for="draft-field-${escapeHtml(slug)}">${escapeHtml(label)} ${required ? '<span class="text-rose-600">*</span>' : ''}</label>
+                    <input id="draft-field-${escapeHtml(slug)}" data-draft-field="${escapeHtml(slug)}" type="text" value="${escapeHtml(value)}" placeholder="Paste the referenced item ID" class="rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+                    <p class="text-xs text-gray-400">Enter the reference ID (e.g., another item's _id). Slug: ${escapeHtml(slug)}</p>
+                </div>
+            `;
+        }
+
         return `
             <div class="flex flex-col gap-2">
                 <label class="text-sm font-medium text-gray-700" for="draft-field-${escapeHtml(slug)}">${escapeHtml(label)} ${required ? '<span class="text-rose-600">*</span>' : ''}</label>
@@ -511,11 +551,17 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         container.querySelectorAll('[data-draft-field]').forEach((input) => {
-            input.addEventListener('input', (event) => {
-                const target = event.target;
-                const fieldSlug = target.dataset.draftField;
-                draftFieldValues[fieldSlug] = target.value;
-            });
+            const fieldSlug = input.dataset.draftField;
+
+            if (input.type === 'checkbox') {
+                input.addEventListener('change', (event) => {
+                    draftFieldValues[fieldSlug] = event.target.checked;
+                });
+            } else {
+                input.addEventListener('input', (event) => {
+                    draftFieldValues[fieldSlug] = event.target.value;
+                });
+            }
         });
 
         const createDraftButton = container.querySelector('#createDraftButton');
@@ -717,6 +763,22 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             const rawValue = parsed[slug];
+
+            if (BOOLEAN_FIELD_TYPES.has(field.type ?? '')) {
+                values[slug] = normalizeBoolean(rawValue);
+                return;
+            }
+
+            if (IMAGE_FIELD_TYPES.has(field.type ?? '')) {
+                values[slug] = normalizeImage(rawValue);
+                return;
+            }
+
+            if (REFERENCE_FIELD_TYPES.has(field.type ?? '')) {
+                values[slug] = normalizeReference(rawValue);
+                return;
+            }
+
             values[slug] = valueToEditableString(rawValue);
         });
 
@@ -755,8 +817,142 @@ document.addEventListener('DOMContentLoaded', () => {
         return String(value);
     }
 
+    function fillMissingFieldsFromRaw(rawText, editableFields) {
+        if (!rawText) {
+            return;
+        }
+
+        editableFields.forEach((field) => {
+            const slug = field.slug ?? '';
+            if (!slug) {
+                return;
+            }
+
+            if (draftFieldValues[slug] !== undefined && draftFieldValues[slug] !== '') {
+                return;
+            }
+
+            if (slug === 'name') {
+                draftFieldValues[slug] = inferTitleFromRaw(rawText) || capitalizeFirstLetter(lastKeyword || 'AI Draft');
+            } else if (slug === 'slug') {
+                const base = draftFieldValues.name || inferTitleFromRaw(rawText) || lastKeyword;
+                if (base) {
+                    draftFieldValues.slug = slugify(base);
+                }
+            } else if (slug === 'post-summary' || slug === 'seo-meta-description') {
+                draftFieldValues[slug] = summarizeRawText(rawText, 24);
+            } else if (slug === 'image-alt-tag') {
+                draftFieldValues[slug] = inferImageAlt(rawText);
+            }
+        });
+    }
+
+    function normalizeBoolean(value) {
+        if (typeof value === 'boolean') {
+            return value;
+        }
+        if (typeof value === 'string') {
+            const normalized = value.trim().toLowerCase();
+            return normalized === 'true' || normalized === '1' || normalized === 'yes';
+        }
+        if (typeof value === 'number') {
+            return value !== 0;
+        }
+        return false;
+    }
+
+    function normalizeImage(value) {
+        if (typeof value === 'string' && value.startsWith('http')) {
+            return value;
+        }
+
+        if (value && typeof value === 'object') {
+            if (typeof value.url === 'string') {
+                return value.url;
+            }
+            if (typeof value.src === 'string') {
+                return value.src;
+            }
+        }
+
+        return '';
+    }
+
+    function normalizeReference(value) {
+        if (typeof value === 'string') {
+            return value;
+        }
+
+        if (value && typeof value === 'object') {
+            if (typeof value._id === 'string') {
+                return value._id;
+            }
+            if (typeof value.id === 'string') {
+                return value.id;
+            }
+        }
+
+        return '';
+    }
+
+    function inferTitleFromRaw(rawText) {
+        const match = rawText.match(/<h1[^>]*>(.*?)<\/h1>/i) || rawText.match(/<h2[^>]*>(.*?)<\/h2>/i);
+        if (match && match[1]) {
+            return stripHtml(match[1]);
+        }
+
+        const sentences = rawText.split(/[.!?]/).map((s) => s.trim()).filter(Boolean);
+        if (sentences.length > 0) {
+            return capitalizeFirstLetter(sentences[0].slice(0, 120));
+        }
+
+        return '';
+    }
+
+    function inferImageAlt(rawText) {
+        const match = rawText.match(/<img[^>]*alt="([^"]*)"[^>]*>/i);
+        if (match && match[1]) {
+            return match[1];
+        }
+
+        const sentence = summarizeRawText(rawText, 12);
+        return sentence ? sentence : 'Illustration related to the blog post.';
+    }
+
+    function summarizeRawText(rawText, wordLimit) {
+        const stripped = stripHtml(rawText);
+        const words = stripped.split(/\s+/).filter(Boolean);
+        if (words.length === 0) {
+            return '';
+        }
+
+        const summary = words.slice(0, wordLimit).join(' ');
+        return words.length > wordLimit ? `${summary}…` : summary;
+    }
+
+    function stripHtml(raw) {
+        return raw.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+    }
+
     function isFieldEditable(field) {
-        return TEXT_FIELD_TYPES.has(field.type ?? '');
+        const type = field.type ?? '';
+        if (!SUPPORTED_FIELD_TYPES.has(type)) {
+            return false;
+        }
+
+        if (REFERENCE_FIELD_TYPES.has(type)) {
+            return true;
+        }
+
+        if (IMAGE_FIELD_TYPES.has(type)) {
+            return true;
+        }
+
+        if (BOOLEAN_FIELD_TYPES.has(type)) {
+            return true;
+        }
+
+        return TEXT_FIELD_TYPES.has(type);
     }
 
     function isLongTextField(type) {
