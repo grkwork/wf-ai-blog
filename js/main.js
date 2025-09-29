@@ -676,25 +676,11 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         if (REFERENCE_FIELD_TYPES.has(field.type ?? '')) {
-            const items = referenceCollections[slug] ?? [];
-            const selected = draftFieldValues[slug] ?? referenceSelection[slug] ?? items[0]?._id ?? items[0]?.id ?? '';
-
-            if (items.length === 0) {
-                return `
-                    <div class="flex flex-col gap-2">
-                        <label class="text-sm font-medium text-gray-700">${escapeHtml(label)}</label>
-                        <p class="text-xs text-gray-500">No items found in this reference collection.</p>
-                    </div>
-                `;
-            }
-
             return `
                 <div class="flex flex-col gap-2">
-                    <label class="block text-sm font-medium text-gray-700" for="draft-field-${escapeHtml(slug)}">${escapeHtml(label)} ${required ? '<span class="text-rose-600">*</span>' : ''}</label>
-                    <select id="draft-field-${escapeHtml(slug)}" data-draft-field="${escapeHtml(slug)}" class="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500">
-                        ${items.map(item => `<option value="${escapeHtml(item._id ?? item.id ?? '')}" ${((item._id ?? item.id) === selected) ? 'selected' : ''}>${escapeHtml(item.name ?? item.displayName ?? 'Untitled Item')}</option>`).join('')}
-                    </select>
-                    <p class="text-xs text-gray-400">Select an item from the referenced collection. Slug: ${escapeHtml(slug)}</p>
+                    <label class="text-sm font-medium text-gray-700" for="draft-field-${escapeHtml(slug)}">${escapeHtml(label)} ${required ? '<span class="text-rose-600">*</span>' : ''}</label>
+                    <input id="draft-field-${escapeHtml(slug)}" data-draft-field="${escapeHtml(slug)}" type="text" value="${escapeHtml(value)}" placeholder="Paste the referenced item ID" class="rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+                    <p class="text-xs text-gray-400">Enter the reference ID (e.g., another item's _id). Slug: ${escapeHtml(slug)}</p>
                 </div>
             `;
         }
@@ -720,12 +706,6 @@ document.addEventListener('DOMContentLoaded', () => {
         if (input.type === 'checkbox') {
             input.addEventListener('change', (event) => {
                 draftFieldValues[fieldSlug] = event.target.checked;
-            });
-        } else if (input.tagName === 'SELECT') {
-            // Handle reference field dropdowns
-            input.addEventListener('change', (event) => {
-                draftFieldValues[fieldSlug] = event.target.value;
-                referenceSelection[fieldSlug] = event.target.value;
             });
         } else {
             input.addEventListener('input', (event) => {
