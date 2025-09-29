@@ -14,16 +14,20 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const apiUrl = 'https://lightslategray-spoonbill-600904.hostingersite.com/api.php';
 
-    const SUPPORTED_FIELD_TYPES = new Set([
+    const TEXT_FIELD_TYPES = new Set([
         'PlainText',
         'RichText',
         'TextArea',
         'Markdown',
         'MultiLinePlainText',
         'LongText',
+        'Slug',
         'Number',
         'Date',
-        'Slug',
+    ]);
+
+    const SUPPORTED_FIELD_TYPES = new Set([
+        ...TEXT_FIELD_TYPES,
         'Switch',
         'Boolean',
         'Image',
@@ -434,13 +438,13 @@ document.addEventListener('DOMContentLoaded', () => {
             if (parsed && typeof parsed === 'object') {
                 draftFieldValues = mapDraftValues(parsed);
                 fillMissingFieldsFromRaw(rawAiContent, editableFields);
-                setBlogGeneratorStatus('AI draft generated. Review and refine the fields below.', 'success');
             } else {
                 draftFieldValues = buildDraftFromRaw(rawAiContent || keyword, editableFields);
-                const warning = rawAiContent ? 'AI response was not valid JSON. Populated the first text field with raw content.' : 'AI response was empty. Started a blank draft instead.';
-                setBlogGeneratorStatus(warning, 'warning');
             }
 
+            await fillImagePlaceholders(keyword, editableFields);
+            selectTopMatchesForReferences();
+            setBlogGeneratorStatus('Draft ready. Review, tweak and push to Webflow.', 'success');
             renderDraftEditor(editableFields);
         } catch (error) {
             setBlogGeneratorStatus(`Generation failed: ${error.message}`, 'error');
@@ -713,7 +717,11 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         container.querySelectorAll('button, input, textarea').forEach((element) => {
-            element.disabled = disabled;
+            if (element.type === 'checkbox') {
+                element.disabled = disabled;
+            } else {
+                element.disabled = disabled;
+            }
         });
     }
 
@@ -766,20 +774,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
             if (BOOLEAN_FIELD_TYPES.has(field.type ?? '')) {
                 values[slug] = normalizeBoolean(rawValue);
-                return;
-            }
-
-            if (IMAGE_FIELD_TYPES.has(field.type ?? '')) {
+            } else if (IMAGE_FIELD_TYPES.has(field.type ?? '')) {
                 values[slug] = normalizeImage(rawValue);
-                return;
-            }
-
-            if (REFERENCE_FIELD_TYPES.has(field.type ?? '')) {
+            } else if (REFERENCE_FIELD_TYPES.has(field.type ?? '')) {
                 values[slug] = normalizeReference(rawValue);
-                return;
+            } else {
+                values[slug] = valueToEditableString(rawValue);
             }
-
-            values[slug] = valueToEditableString(rawValue);
         });
 
         return values;
@@ -817,6 +818,83 @@ document.addEventListener('DOMContentLoaded', () => {
         return String(value);
     }
 
+    async function fillImagePlaceholders(keyword, editableFields) {
+        const imageFields = editableFields.filter((field) => IMAGE_FIELD_TYPES.has(field.type ?? ''));
+        if (imageFields.length === 0) {
+            return;
+        }
+
+        const missingImages = imageFields.filter((field) => {
+            const slug = field.slug ?? '';
+            const currentValue = draftFieldValues[slug];
+            return !currentValue || typeof currentValue !== 'string' || !currentValue.startsWith('http');
+        });
+
+        if (missingImages.length === 0) {
+            return;
+        }
+
+        try {
+            const photo = await fetchUnsplashImage(keyword);
+            if (!photo) {
+                return;
+            }
+
+            missingImages.forEach((field, index) => {
+                const slug = field.slug ?? '';
+                if (!slug) {
+                    return;
+                }
+
+                const variation = `${keyword} ${index}`.trim();
+                draftFieldValues[slug] = `${photo}?sig=${encodeURIComponent(variation)}`;
+            });
+        } catch (_error) {
+            // Leave placeholders blank if Unsplash request fails.
+        }
+    }
+
+    async function fetchUnsplashImage(keyword) {
+        try {
+            const accessKey = UNSPLASH_API_KEY || ''; // ensure defined
+            if (!accessKey) {
+                return '';
+            }
+
+            const response = await fetch(
+                `https://api.unsplash.com/photos/random?query=${encodeURIComponent(keyword)}&orientation=landscape&client_id=${accessKey}`
+            );
+
+            if (!response.ok) {
+                return '';
+            }
+
+            const data = await response.json();
+            const url = data?.urls?.regular || data?.urls?.full || data?.urls?.raw;
+            return typeof url === 'string' ? url : '';
+        } catch (_error) {
+            return '';
+        }
+    }
+
+    function selectTopMatchesForReferences() {
+        selectedCollectionFields.forEach((field) => {
+            if (!REFERENCE_FIELD_TYPES.has(field.type ?? '')) {
+                return;
+            }
+
+            const slug = field.slug ?? '';
+            if (!slug) {
+                return;
+            }
+
+            const raw = draftFieldValues[slug];
+            if (!raw) {
+                draftFieldValues[slug] = 'UNABLE_TO_GET_DATA';
+            }
+        });
+    }
+
     function fillMissingFieldsFromRaw(rawText, editableFields) {
         if (!rawText) {
             return;
@@ -828,21 +906,29 @@ document.addEventListener('DOMContentLoaded', () => {
                 return;
             }
 
-            if (draftFieldValues[slug] !== undefined && draftFieldValues[slug] !== '') {
+            const existing = draftFieldValues[slug];
+
+            if (existing !== undefined && existing !== '' && existing !== null) {
                 return;
             }
 
-            if (slug === 'name') {
-                draftFieldValues[slug] = inferTitleFromRaw(rawText) || capitalizeFirstLetter(lastKeyword || 'AI Draft');
-            } else if (slug === 'slug') {
-                const base = draftFieldValues.name || inferTitleFromRaw(rawText) || lastKeyword;
-                if (base) {
-                    draftFieldValues.slug = slugify(base);
-                }
-            } else if (slug === 'post-summary' || slug === 'seo-meta-description') {
-                draftFieldValues[slug] = summarizeRawText(rawText, 24);
-            } else if (slug === 'image-alt-tag') {
-                draftFieldValues[slug] = inferImageAlt(rawText);
+            switch (slug) {
+                case 'name':
+                    draftFieldValues[slug] = inferTitleFromRaw(rawText) || capitalizeFirstLetter(lastKeyword || 'AI Draft');
+                    break;
+                case 'slug':
+                    draftFieldValues[slug] = slugify(draftFieldValues.name || inferTitleFromRaw(rawText) || lastKeyword || 'ai-draft');
+                    break;
+                case 'post-summary':
+                case 'seo-meta-description':
+                    draftFieldValues[slug] = summarizeRawText(rawText, 30) || 'Unable to get data';
+                    break;
+                case 'image-alt-tag':
+                    draftFieldValues[slug] = inferImageAlt(rawText);
+                    break;
+                default:
+                    draftFieldValues[slug] = 'UNABLE_TO_GET_DATA';
+                    break;
             }
         });
     }

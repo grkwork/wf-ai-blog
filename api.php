@@ -243,14 +243,73 @@ function handleCreateDraft(Client $client, string $token, ?string $collectionId,
 
 function buildBlogPrompt(string $keyword, array $fields): string
 {
-    $fieldDescriptions = array_map(
-        static fn(array $field): string => sprintf('- %s (%s)', $field['displayName'] ?? $field['slug'] ?? 'Unnamed field', $field['type'] ?? 'unknown'),
+    $fieldInstructions = array_map(
+        static function (array $field): array {
+            $type = strtolower($field['type'] ?? 'unknown');
+            $slug = $field['slug'] ?? 'unknown';
+
+            $examples = [
+                'plaintext' => [
+                    'expectation' => 'Provide concise text.',
+                    'example' => 'This is a short summary describing the article.',
+                ],
+                'slug' => [
+                    'expectation' => 'URL-friendly slug in lowercase words separated by hyphen.',
+                    'example' => 'best-home-insurance-tips',
+                ],
+                'richtext' => [
+                    'expectation' => 'Return HTML markup with paragraphs, headings, and lists when appropriate.',
+                    'example' => '<h2>Main Idea</h2><p>Explain the concept...</p>',
+                ],
+                'image' => [
+                    'expectation' => 'Provide a direct https URL to an Unsplash image relevant to the topic.',
+                    'example' => 'https://images.unsplash.com/photo-12345?auto=format&fit=crop&w=1400&q=80',
+                ],
+                'switch' => [
+                    'expectation' => 'Return true or false.',
+                    'example' => 'true',
+                ],
+                'boolean' => [
+                    'expectation' => 'Return true or false.',
+                    'example' => 'false',
+                ],
+                'reference' => [
+                    'expectation' => 'Return the identifier of a related CMS item (string).',
+                    'example' => '65b8d2b0e7a2c4f0d1b3e5a7',
+                ],
+                'number' => [
+                    'expectation' => 'Return numeric value (integer or float).',
+                    'example' => '42',
+                ],
+                'date' => [
+                    'expectation' => 'Return ISO 8601 date string.',
+                    'example' => '2024-05-21',
+                ],
+            ];
+
+            $tip = $examples[$type] ?? [
+                'expectation' => 'Provide appropriate content.',
+                'example' => '',
+            ];
+
+            return [
+                'slug' => $slug,
+                'displayName' => $field['displayName'] ?? $slug,
+                'type' => $type,
+                'required' => $field['required'] ?? false,
+                'instruction' => $tip['expectation'],
+                'example' => $tip['example'],
+            ];
+        },
         $fields
     );
 
-    return "Generate a Webflow CMS blog post draft using the keyword '{$keyword}'.\n" .
-        "Follow these field expectations:\n" . implode("\n", $fieldDescriptions) . "\n" .
-        "Return structured JSON matching field slugs with sample content.";
+    return json_encode([
+        'role' => 'assistant',
+        'instruction' => 'Generate Webflow CMS draft data as JSON. The response must be a valid JSON object where keys exactly match the provided field slugs. Do not include commentary.',
+        'keyword' => $keyword,
+        'fields' => $fieldInstructions,
+    ], JSON_PRETTY_PRINT);
 }
 
 function baseWebflowHeaders(string $token): array
