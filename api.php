@@ -8,6 +8,7 @@ if (file_exists($configPath)) {
 
 use GuzzleHttp\Client;
 use GuzzleHttp\Exception\RequestException;
+use OpenAI\OpenAI;
 
 header('Content-Type: application/json');
 header('Access-Control-Allow-Origin: *');
