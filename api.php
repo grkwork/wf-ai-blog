@@ -243,73 +243,37 @@ function handleCreateDraft(Client $client, string $token, ?string $collectionId,
 
 function buildBlogPrompt(string $keyword, array $fields): string
 {
-    $fieldInstructions = array_map(
-        static function (array $field): array {
-            $type = strtolower($field['type'] ?? 'unknown');
-            $slug = $field['slug'] ?? 'unknown';
+    $lines = [];
+    $lines[] = "You are an assistant that generates draft content for a Webflow CMS collection.";
+    $lines[] = "Use the keyword: {$keyword}.";
+    $lines[] = "Return only valid JSON with keys that exactly match the provided field slugs.";
+    $lines[] = "For each field, follow the instructions below:";
 
-            $examples = [
-                'plaintext' => [
-                    'expectation' => 'Provide concise text.',
-                    'example' => 'This is a short summary describing the article.',
-                ],
-                'slug' => [
-                    'expectation' => 'URL-friendly slug in lowercase words separated by hyphen.',
-                    'example' => 'best-home-insurance-tips',
-                ],
-                'richtext' => [
-                    'expectation' => 'Return HTML markup with paragraphs, headings, and lists when appropriate.',
-                    'example' => '<h2>Main Idea</h2><p>Explain the concept...</p>',
-                ],
-                'image' => [
-                    'expectation' => 'Provide a direct https URL to an Unsplash image relevant to the topic.',
-                    'example' => 'https://images.unsplash.com/photo-12345?auto=format&fit=crop&w=1400&q=80',
-                ],
-                'switch' => [
-                    'expectation' => 'Return true or false.',
-                    'example' => 'true',
-                ],
-                'boolean' => [
-                    'expectation' => 'Return true or false.',
-                    'example' => 'false',
-                ],
-                'reference' => [
-                    'expectation' => 'Return the identifier of a related CMS item (string).',
-                    'example' => '65b8d2b0e7a2c4f0d1b3e5a7',
-                ],
-                'number' => [
-                    'expectation' => 'Return numeric value (integer or float).',
-                    'example' => '42',
-                ],
-                'date' => [
-                    'expectation' => 'Return ISO 8601 date string.',
-                    'example' => '2024-05-21',
-                ],
-            ];
+    foreach ($fields as $field) {
+        $slug = $field['slug'] ?? 'unknown';
+        $displayName = $field['displayName'] ?? $slug;
+        $type = strtolower($field['type'] ?? 'unknown');
+        $required = ($field['required'] ?? false) ? 'Required' : 'Optional';
 
-            $tip = $examples[$type] ?? [
-                'expectation' => 'Provide appropriate content.',
-                'example' => '',
-            ];
+        $instruction = match ($type) {
+            'plaintext' => 'Provide concise text.',
+            'slug' => 'Generate a lowercase, hyphen-separated URL slug.',
+            'richtext' => 'Return HTML markup with headings and paragraphs.',
+            'image' => 'Return a direct https URL to a relevant Unsplash image.',
+            'switch', 'boolean' => 'Return true or false.',
+            'reference' => 'Return a related item identifier as a string.',
+            'number' => 'Return a numeric value.',
+            'date' => 'Return an ISO 8601 date string.',
+            default => 'Provide suitable content.',
+        };
 
-            return [
-                'slug' => $slug,
-                'displayName' => $field['displayName'] ?? $slug,
-                'type' => $type,
-                'required' => $field['required'] ?? false,
-                'instruction' => $tip['expectation'],
-                'example' => $tip['example'],
-            ];
-        },
-        $fields
-    );
+        $lines[] = "- Slug: {$slug} ({$required}, type: {$type}) — {$instruction}";
+    }
 
-    return json_encode([
-        'role' => 'assistant',
-        'instruction' => 'Generate Webflow CMS draft data as JSON. The response must be a valid JSON object where keys exactly match the provided field slugs. Do not include commentary.',
-        'keyword' => $keyword,
-        'fields' => $fieldInstructions,
-    ], JSON_PRETTY_PRINT);
+    $lines[] = "Example JSON format: {\"slug-name\": \"value\"}";
+    $lines[] = "Do not include any commentary or extra keys.";
+
+    return implode("\n", $lines);
 }
 
 function baseWebflowHeaders(string $token): array

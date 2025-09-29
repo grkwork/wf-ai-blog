@@ -717,11 +717,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         container.querySelectorAll('button, input, textarea').forEach((element) => {
-            if (element.type === 'checkbox') {
-                element.disabled = disabled;
-            } else {
-                element.disabled = disabled;
-            }
+            element.disabled = disabled;
         });
     }
 
@@ -834,33 +830,32 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
-        try {
-            const photo = await fetchUnsplashImage(keyword);
-            if (!photo) {
+        const photo = await fetchUnsplashImage(keyword);
+        if (!photo) {
+            return;
+        }
+
+        missingImages.forEach((field, index) => {
+            const slug = field.slug ?? '';
+            if (!slug) {
                 return;
             }
 
-            missingImages.forEach((field, index) => {
-                const slug = field.slug ?? '';
-                if (!slug) {
-                    return;
-                }
-
-                const variation = `${keyword} ${index}`.trim();
-                draftFieldValues[slug] = `${photo}?sig=${encodeURIComponent(variation)}`;
-            });
-        } catch (_error) {
-            // Leave placeholders blank if Unsplash request fails.
-        }
+            const variation = `${keyword} ${index}`.trim();
+            draftFieldValues[slug] = `${photo}?sig=${encodeURIComponent(variation)}`;
+        });
     }
 
     async function fetchUnsplashImage(keyword) {
-        try {
-            const accessKey = UNSPLASH_API_KEY || ''; // ensure defined
-            if (!accessKey) {
-                return '';
-            }
+        const accessKey = typeof window !== 'undefined' && typeof window.UNSPLASH_API_KEY === 'string'
+            ? window.UNSPLASH_API_KEY
+            : '';
 
+        if (!accessKey) {
+            return '';
+        }
+
+        try {
             const response = await fetch(
                 `https://api.unsplash.com/photos/random?query=${encodeURIComponent(keyword)}&orientation=landscape&client_id=${accessKey}`
             );
@@ -890,7 +885,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             const raw = draftFieldValues[slug];
             if (!raw) {
-                draftFieldValues[slug] = 'UNABLE_TO_GET_DATA';
+                draftFieldValues[slug] = 'unable to get data';
             }
         });
     }
@@ -921,13 +916,13 @@ document.addEventListener('DOMContentLoaded', () => {
                     break;
                 case 'post-summary':
                 case 'seo-meta-description':
-                    draftFieldValues[slug] = summarizeRawText(rawText, 30) || 'Unable to get data';
+                    draftFieldValues[slug] = summarizeRawText(rawText, 30) || 'unable to get data';
                     break;
                 case 'image-alt-tag':
                     draftFieldValues[slug] = inferImageAlt(rawText);
                     break;
                 default:
-                    draftFieldValues[slug] = 'UNABLE_TO_GET_DATA';
+                    draftFieldValues[slug] = 'unable to get data';
                     break;
             }
         });
