@@ -343,8 +343,8 @@ document.addEventListener('DOMContentLoaded', () => {
                                 <option value="openai:o4-mini">o4-mini (higher quality)</option>
                             </optgroup>
                             <optgroup label="Google Gemini">
-                                <option value="gemini:gemini-1.5-flash-latest">Gemini 1.5 Flash (fast, economical)</option>
-                                <option value="gemini:gemini-1.5-pro-latest">Gemini 1.5 Pro (higher quality)</option>
+                                <option value="gemini:gemini-2.5-flash" selected>Gemini 2.5 Flash (fast, versatile)</option>
+                                <option value="gemini:gemini-2.5-pro">Gemini 2.5 Pro (higher quality)</option>
                             </optgroup>
                         </select>
                     </div>

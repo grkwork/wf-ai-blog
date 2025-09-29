@@ -7,8 +7,9 @@ if (file_exists($configPath)) {
 }
 
 use GuzzleHttp\Client;
-use GuzzleHttp\Exception\RequestException;
+use GuzzleHttp\Exception\ClientException;
 use GuzzleHttp\Exception\GuzzleException;
+use GuzzleHttp\Exception\RequestException;
 use OpenAI;
 
 header('Content-Type: application/json');
@@ -156,20 +157,7 @@ function generateWithGemini(string $model, string $promptText, string $apiKey): 
     $resolvedModel = resolveGeminiModel($model);
 
     try {
-        $response = $httpClient->request('POST', "https://generativelanguage.googleapis.com/v1/models/{$resolvedModel}:generateContent", [
-            'query' => ['key' => $apiKey],
-            'json' => [
-                'contents' => [
-                    [
-                        'role' => 'user',
-                        'parts' => [
-                            ['text' => $promptText],
-                        ],
-                    ],
-                ],
-            ],
-            'timeout' => 30,
-        ]);
+        $response = requestGemini($httpClient, 'v1beta', $resolvedModel, $promptText, $apiKey);
     } catch (GuzzleException $exception) {
         throw new RuntimeException('Gemini request failed: ' . $exception->getMessage(), 0, $exception);
     }
@@ -204,6 +192,10 @@ function parseModelSelection(string $selection): array
 function resolveGeminiModel(string $model): string
 {
     $map = [
+        'gemini-2.5-flash' => 'gemini-2.5-flash',
+        'gemini-2.5-flash-latest' => 'gemini-2.5-flash',
+        'gemini-2.5-pro' => 'gemini-2.5-pro',
+        'gemini-2.5-pro-latest' => 'gemini-2.5-pro',
         'gemini-1.5-flash-latest' => 'gemini-1.5-flash',
         'gemini-1.5-pro-latest' => 'gemini-1.5-pro',
         'gemini-pro-latest' => 'gemini-pro',
@@ -211,6 +203,26 @@ function resolveGeminiModel(string $model): string
     ];
 
     return $map[$model] ?? $model;
+}
+
+function requestGemini(Client $client, string $apiVersion, string $model, string $promptText, string $apiKey)
+{
+    return $client->request('POST', "https://generativelanguage.googleapis.com/{$apiVersion}/models/{$model}:generateContent", [
+        'headers' => [
+            'x-goog-api-key' => $apiKey,
+            'Content-Type' => 'application/json',
+        ],
+        'json' => [
+            'contents' => [
+                [
+                    'parts' => [
+                        ['text' => $promptText],
+                    ],
+                ],
+            ],
+        ],
+        'timeout' => 30,
+    ]);
 }
 
 function handleCreateDraft(Client $client, string $token, ?string $collectionId, array $fields): void
