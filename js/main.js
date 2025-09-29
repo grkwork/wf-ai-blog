@@ -551,9 +551,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 <select id="reference-select-${escapeHtml(slug)}" data-reference-slug="${escapeHtml(slug)}" class="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500">
                     ${items.map((item) => {
                         const id = item._id ?? item.id ?? '';
-                        const name = item.name ?? item.displayName ?? id;
+                        const name = item.name ?? item.displayName ?? 'Untitled Item';
                         const isSelected = id === selected;
-                        return `<option value="${escapeHtml(id)}" ${isSelected ? 'selected' : ''}>${escapeHtml(name)}</option>`;
+                        return `<option value="${escapeHtml(id)}" ${isSelected ? 'selected' : ''}>${escapeHtml(name)} (${escapeHtml(id)})</option>`;
                     }).join('')}
                 </select>
             </div>
@@ -750,7 +750,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     <label class="text-sm font-medium text-gray-700" for="draft-field-${escapeHtml(slug)}">${escapeHtml(label)} ${required ? '<span class="text-rose-600">*</span>' : ''}</label>
                     <div class="flex items-center gap-2">
                         <input id="draft-field-${escapeHtml(slug)}" data-draft-field="${escapeHtml(slug)}" type="text" value="${escapeHtml(selectedId)}" class="flex-1 rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500" readonly />
-                        <span class="text-sm text-gray-600 bg-gray-100 px-2 py-1 rounded">${escapeHtml(selectedName)}</span>
+                        <span class="text-sm text-gray-600 bg-gray-100 px-2 py-1 rounded">${escapeHtml(selectedName)} (${escapeHtml(selectedId)})</span>
                     </div>
                     <p class="text-xs text-gray-400">Reference ID: ${escapeHtml(selectedId)} (auto-populated from selection above)</p>
                 </div>
