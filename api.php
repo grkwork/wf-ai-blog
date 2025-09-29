@@ -284,6 +284,14 @@ function buildBlogPrompt(string $keyword, array $fields): string
     $lines[] = "Use the keyword: {$keyword}.";
     $lines[] = "Return only valid JSON with keys that exactly match the provided field slugs. Do not wrap the JSON in quotes or code fences.";
     $lines[] = "For each field, follow the instructions below:";
+    $lines[] = "";
+    $lines[] = "IMPORTANT FOR IMAGES: Use reliable, accessible free image sources. Prefer these sources in order:";
+    $lines[] = "1. Pexels (https://images.pexels.com/photos/) - Use direct image URLs like: https://images.pexels.com/photos/1234567/pexels-photo-1234567.jpeg";
+    $lines[] = "2. Pixabay (https://pixabay.com/photos/) - Use direct image URLs";
+    $lines[] = "3. Wikimedia Commons (https://commons.wikimedia.org/) - Use direct image URLs";
+    $lines[] = "4. Unsplash (https://images.unsplash.com/) - Only if other sources fail, use direct URLs like: https://images.unsplash.com/photo-1234567890-abcdef";
+    $lines[] = "AVOID: Complex Unsplash URLs with parameters, broken links, or placeholder images.";
+    $lines[] = "";
 
     foreach ($fields as $field) {
         $slug = $field['slug'] ?? 'unknown';
@@ -295,7 +303,7 @@ function buildBlogPrompt(string $keyword, array $fields): string
             'plaintext' => 'Provide concise text.',
             'slug' => 'Generate a lowercase, hyphen-separated URL slug based on the "name" field.',
             'richtext' => 'Return rich, well-structured HTML. Include headings (h2, h3), paragraphs (p), lists (ul, ol), and embed at least one relevant, royalty-free image using an <img> tag with a direct HTTPS URL in the src attribute.',
-            'image' => 'Return a direct HTTPS URL to a relevant, high-quality, royalty-free image. Do not use placeholders.',
+            'image' => 'Return a direct HTTPS URL to a relevant, high-quality, royalty-free image from Pexels, Pixabay, or Wikimedia Commons. Ensure the URL is accessible and returns a valid image.',
             'switch', 'boolean' => 'Return true or false.',
             'reference' => 'Return a related item identifier as a string.',
             'number' => 'Return a numeric value.',
