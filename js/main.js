@@ -507,6 +507,23 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
 
+    function updateDraftFieldDisplay(slug, selectedId) {
+        // Find the draft field input for this reference field
+        const draftFieldInput = document.querySelector(`#draft-field-${slug}`);
+        if (draftFieldInput) {
+            draftFieldInput.value = selectedId;
+            
+            // Update the display name if it exists
+            const displaySpan = draftFieldInput.parentElement.querySelector('span');
+            if (displaySpan) {
+                const items = referenceCollections[slug] ?? [];
+                const selectedItem = items.find(item => (item._id ?? item.id) === selectedId);
+                const selectedName = selectedItem?.name ?? selectedItem?.displayName ?? selectedItem?.title ?? selectedItem?.fieldData?.name ?? selectedItem?.fieldData?.displayName ?? selectedItem?.fieldData?.title ?? selectedId;
+                displaySpan.textContent = `${selectedName} (${selectedId})`;
+            }
+        }
+    }
+
     function initializeReferenceSelections(editableFields) {
         const referenceFields = editableFields.filter((field) => REFERENCE_FIELD_TYPES.has(field.type ?? ''));
         
@@ -551,7 +568,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 <select id="reference-select-${escapeHtml(slug)}" data-reference-slug="${escapeHtml(slug)}" class="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500">
                     ${items.map((item) => {
                         const id = item._id ?? item.id ?? '';
-                        const name = item.name ?? item.displayName ?? 'Untitled Item';
+                        // Try multiple possible name fields
+                        const name = item.name ?? item.displayName ?? item.title ?? item.fieldData?.name ?? item.fieldData?.displayName ?? item.fieldData?.title ?? 'Untitled Item';
                         const isSelected = id === selected;
                         return `<option value="${escapeHtml(id)}" ${isSelected ? 'selected' : ''}>${escapeHtml(name)} (${escapeHtml(id)})</option>`;
                     }).join('')}
@@ -579,6 +597,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 
                 // Auto-populate the corresponding draft field
                 draftFieldValues[slug] = selectedId;
+                
+                // Update the draft field display if it exists
+                updateDraftFieldDisplay(slug, selectedId);
                 
                 console.log(`Reference field ${slug} updated to: ${selectedId}`);
             });
@@ -743,7 +764,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const items = referenceCollections[slug] ?? [];
             const selectedId = draftFieldValues[slug] ?? referenceSelection[slug] ?? items[0]?._id ?? items[0]?.id ?? '';
             const selectedItem = items.find(item => (item._id ?? item.id) === selectedId);
-            const selectedName = selectedItem?.name ?? selectedItem?.displayName ?? selectedId;
+            const selectedName = selectedItem?.name ?? selectedItem?.displayName ?? selectedItem?.title ?? selectedItem?.fieldData?.name ?? selectedItem?.fieldData?.displayName ?? selectedItem?.fieldData?.title ?? selectedId;
 
             return `
                 <div class="flex flex-col gap-2">
