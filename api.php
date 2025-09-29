@@ -153,9 +153,10 @@ function handleGenerateBlog(string $token, ?string $prompt, array $fields, strin
 function generateWithGemini(string $model, string $promptText, string $apiKey): string
 {
     $httpClient = new Client();
+    $resolvedModel = resolveGeminiModel($model);
 
     try {
-        $response = $httpClient->request('POST', "https://generativelanguage.googleapis.com/v1beta/models/{$model}:generateContent", [
+        $response = $httpClient->request('POST', "https://generativelanguage.googleapis.com/v1beta/models/{$resolvedModel}:generateContent", [
             'query' => ['key' => $apiKey],
             'json' => [
                 'contents' => [
@@ -175,6 +176,11 @@ function generateWithGemini(string $model, string $promptText, string $apiKey): 
 
     $payload = json_decode($response->getBody()->getContents(), true);
 
+    if (isset($payload['error'])) {
+        $message = $payload['error']['message'] ?? 'Unknown Gemini API error.';
+        throw new RuntimeException('Gemini API error: ' . $message);
+    }
+
     $text = $payload['candidates'][0]['content']['parts'][0]['text'] ?? '';
 
     if (!is_string($text) || trim($text) === '') {
@@ -193,6 +199,18 @@ function parseModelSelection(string $selection): array
     }
 
     return [$parts[0] ?: 'openai', $parts[1] ?: 'gpt-4o-mini'];
+}
+
+function resolveGeminiModel(string $model): string
+{
+    $map = [
+        'gemini-1.5-flash-latest' => 'gemini-1.5-flash',
+        'gemini-1.5-pro-latest' => 'gemini-1.5-pro',
+        'gemini-pro-latest' => 'gemini-pro',
+        'gemini-pro' => 'gemini-pro',
+    ];
+
+    return $map[$model] ?? $model;
 }
 
 function handleCreateDraft(Client $client, string $token, ?string $collectionId, array $fields): void
