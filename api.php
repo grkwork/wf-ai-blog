@@ -246,7 +246,7 @@ function buildBlogPrompt(string $keyword, array $fields): string
     $lines = [];
     $lines[] = "You are an assistant that generates draft content for a Webflow CMS collection.";
     $lines[] = "Use the keyword: {$keyword}.";
-    $lines[] = "Return only valid JSON with keys that exactly match the provided field slugs.";
+    $lines[] = "Return only valid JSON with keys that exactly match the provided field slugs. Do not wrap the JSON in quotes or code fences.";
     $lines[] = "For each field, follow the instructions below:";
 
     foreach ($fields as $field) {

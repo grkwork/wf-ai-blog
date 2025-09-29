@@ -439,6 +439,16 @@ document.addEventListener('DOMContentLoaded', () => {
                 draftFieldValues = mapDraftValues(parsed);
                 fillMissingFieldsFromRaw(rawAiContent, editableFields);
             } else {
+                const cleaned = extractJsonFromText(rawAiContent);
+                const fallbackParsed = cleaned ? safeParseJson(cleaned) : null;
+
+                if (fallbackParsed && typeof fallbackParsed === 'object') {
+                    draftFieldValues = mapDraftValues(fallbackParsed);
+                    fillMissingFieldsFromRaw(rawAiContent, editableFields);
+                } else {
+                    draftFieldValues = buildDraftFromRaw(rawAiContent || keyword, editableFields);
+                }
+            } else {
                 draftFieldValues = buildDraftFromRaw(rawAiContent || keyword, editableFields);
             }
 
@@ -753,6 +763,26 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    function extractJsonFromText(text) {
+        if (typeof text !== 'string') {
+            return '';
+        }
+
+        const codeFenceMatch = text.match(/```[a-zA-Z]*\n([\s\S]*?)```/);
+        if (codeFenceMatch && codeFenceMatch[1]) {
+            return codeFenceMatch[1].trim();
+        }
+
+        const jsonStart = text.indexOf('{');
+        const jsonEnd = text.lastIndexOf('}');
+
+        if (jsonStart !== -1 && jsonEnd !== -1 && jsonEnd > jsonStart) {
+            return text.slice(jsonStart, jsonEnd + 1);
+        }
+
+        return '';
+    }
+
     function mapDraftValues(parsed) {
         const values = {};
 
@@ -830,46 +860,14 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
-        const photo = await fetchUnsplashImage(keyword);
-        if (!photo) {
-            return;
-        }
-
         missingImages.forEach((field, index) => {
             const slug = field.slug ?? '';
             if (!slug) {
                 return;
             }
 
-            const variation = `${keyword} ${index}`.trim();
-            draftFieldValues[slug] = `${photo}?sig=${encodeURIComponent(variation)}`;
+            draftFieldValues[slug] = 'unable to get data';
         });
-    }
-
-    async function fetchUnsplashImage(keyword) {
-        const accessKey = typeof window !== 'undefined' && typeof window.UNSPLASH_API_KEY === 'string'
-            ? window.UNSPLASH_API_KEY
-            : '';
-
-        if (!accessKey) {
-            return '';
-        }
-
-        try {
-            const response = await fetch(
-                `https://api.unsplash.com/photos/random?query=${encodeURIComponent(keyword)}&orientation=landscape&client_id=${accessKey}`
-            );
-
-            if (!response.ok) {
-                return '';
-            }
-
-            const data = await response.json();
-            const url = data?.urls?.regular || data?.urls?.full || data?.urls?.raw;
-            return typeof url === 'string' ? url : '';
-        } catch (_error) {
-            return '';
-        }
     }
 
     function selectTopMatchesForReferences() {
