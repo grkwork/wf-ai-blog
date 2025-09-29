@@ -448,8 +448,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 } else {
                     draftFieldValues = buildDraftFromRaw(rawAiContent || keyword, editableFields);
                 }
-            } else {
-                draftFieldValues = buildDraftFromRaw(rawAiContent || keyword, editableFields);
             }
 
             await fillImagePlaceholders(keyword, editableFields);
