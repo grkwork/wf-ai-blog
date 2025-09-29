@@ -293,9 +293,9 @@ function buildBlogPrompt(string $keyword, array $fields): string
 
         $instruction = match ($type) {
             'plaintext' => 'Provide concise text.',
-            'slug' => 'Generate a lowercase, hyphen-separated URL slug.',
-            'richtext' => 'Return HTML markup with headings and paragraphs.',
-            'image' => 'Return a direct https URL to a relevant Unsplash image.',
+            'slug' => 'Generate a lowercase, hyphen-separated URL slug based on the "name" field.',
+            'richtext' => 'Return rich, well-structured HTML. Include headings (h2, h3), paragraphs (p), lists (ul, ol), and embed at least one relevant, royalty-free image using an <img> tag with a direct HTTPS URL in the src attribute.',
+            'image' => 'Return a direct HTTPS URL to a relevant, high-quality, royalty-free image. Do not use placeholders.',
             'switch', 'boolean' => 'Return true or false.',
             'reference' => 'Return a related item identifier as a string.',
             'number' => 'Return a numeric value.',
