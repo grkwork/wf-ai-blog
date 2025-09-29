@@ -158,12 +158,36 @@ function handleGenerateBlog(string $token, ?string $prompt, array $fields, strin
 
             $client = OpenAI::client($apiKey);
 
-            $response = $client->responses()->create([
-                'model' => $model,
-                'input' => $promptText,
-            ]);
+            // Retry mechanism with exponential backoff for rate limits
+            $maxRetries = 3;
+            $baseDelay = 2; // seconds
+            
+            for ($attempt = 0; $attempt < $maxRetries; $attempt++) {
+                try {
+                    $response = $client->responses()->create([
+                        'model' => $model,
+                        'input' => $promptText,
+                    ]);
 
-            $generated = $response->output[0]->content[0]->text ?? '';
+                    $generated = $response->output[0]->content[0]->text ?? '';
+                    break; // Success, exit retry loop
+                    
+                } catch (Exception $e) {
+                    $errorMessage = $e->getMessage();
+                    
+                    // Check if it's a rate limit error
+                    if (strpos($errorMessage, 'rate limit') !== false || strpos($errorMessage, 'Rate limit') !== false) {
+                        if ($attempt < $maxRetries - 1) {
+                            $delay = $baseDelay * pow(2, $attempt); // Exponential backoff: 2s, 4s, 8s
+                            sleep($delay);
+                            continue; // Retry
+                        }
+                    }
+                    
+                    // If not a rate limit error, or we've exhausted retries, re-throw
+                    throw $e;
+                }
+            }
             break;
 
         case 'gemini':

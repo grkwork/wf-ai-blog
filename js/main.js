@@ -594,7 +594,14 @@ document.addEventListener('DOMContentLoaded', () => {
             setBlogGeneratorStatus('Draft ready. Review, tweak and push to Webflow.', 'success');
             renderDraftEditor(editableFields);
         } catch (error) {
-            setBlogGeneratorStatus(`Generation failed: ${error.message}`, 'error');
+            let errorMessage = error.message;
+            
+            // Provide helpful guidance for rate limit errors
+            if (errorMessage.includes('rate limit') || errorMessage.includes('Rate limit')) {
+                errorMessage += '\n\n💡 Try switching to Gemini models or wait a few minutes before retrying.';
+            }
+            
+            setBlogGeneratorStatus(`Generation failed: ${errorMessage}`, 'error');
         } finally {
             toggleGeneratorControls(false);
         }
