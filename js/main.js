@@ -6,6 +6,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const collectionsListContainer = document.getElementById('collectionsListContainer');
     const fieldsListContainer = document.getElementById('fieldsListContainer');
     const blogGeneratorContainer = document.getElementById('blogGeneratorContainer');
+    const itemsListContainer = document.getElementById('itemsListContainer');
 
     if (!apiKeyForm || !apiKeyInput || !submitBtn || !sitesListContainer || !collectionsListContainer) {
         console.warn('Webflow connector: Required DOM nodes are missing.');
@@ -54,6 +55,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let lastKeyword = '';
     const referenceCollections = {};
     const referenceSelection = {};
+    const collectionItems = [];
 
     resetCollectionsUI();
     resetFieldsUI();
@@ -86,6 +88,7 @@ document.addEventListener('DOMContentLoaded', () => {
         resetCollectionsUI('Loading collections…');
         resetFieldsUI();
         resetBlogGenerator('Select a collection to enable the AI generator.');
+        resetItemsUI();
 
         fetchCollections(siteId);
     });
@@ -114,6 +117,7 @@ document.addEventListener('DOMContentLoaded', () => {
         highlightSelectedCollection(listItem);
         resetFieldsUI('Loading fields…');
         resetBlogGenerator('Loading collection details…');
+        resetItemsUI('Loading items…');
 
         fetchCollectionFields(collectionId);
     });
@@ -167,10 +171,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
             await populateReferenceMetadata();
             displayFields(selectedCollectionFields);
+            await displayCollectionItems(collection.id ?? collectionId);
             renderBlogGenerator();
         } catch (error) {
             fieldsListContainer.innerHTML = `<p class="text-center text-red-600">${escapeHtml(error.message)}</p>`;
             renderBlogGenerator('Unable to load collection fields.');
+            resetItemsUI('Unable to load collection items.');
         }
     }
 
@@ -190,7 +196,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 return;
             }
 
-            const collectionId = field.collectionId ?? field.referenceCollectionId ?? field.collection ?? field.collectionIdSlug ?? null;
+            const collectionId = field.collectionId
+                ?? field.referenceCollectionId
+                ?? field.collection
+                ?? field.collectionIdSlug
+                ?? field.collectionSlug
+                ?? (field.reference?.collectionId ?? null);
             if (!collectionId) {
                 return;
             }
@@ -205,6 +216,77 @@ document.addEventListener('DOMContentLoaded', () => {
                 referenceSelection[slug] = '';
             }
         }));
+
+        await displayReferenceItems(referenceFields);
+    }
+
+    async function displayCollectionItems(collectionId) {
+        if (!itemsListContainer) {
+            return;
+        }
+
+        if (!collectionId) {
+            resetItemsUI();
+            return;
+        }
+
+        try {
+            const response = await callApi({ action: 'list-collection-items', collectionId });
+            const items = Array.isArray(response.items) ? response.items : [];
+            renderItemsReview(itemsListContainer, items);
+        } catch (_error) {
+            resetItemsUI('Unable to load collection items.');
+        }
+    }
+
+    async function displayReferenceItems(referenceFields) {
+        if (!itemsListContainer) {
+            return;
+        }
+
+        const items = referenceFields.flatMap((field) => referenceCollections[field.slug ?? ''] ?? []);
+        if (items.length === 0) {
+            return;
+        }
+
+        renderItemsReview(itemsListContainer, items, true);
+    }
+
+    function renderItemsReview(container, items, isReference = false) {
+        if (!container) {
+            return;
+        }
+
+        if (!Array.isArray(items) || items.length === 0) {
+            container.innerHTML = '<p class="text-center text-gray-500">No items available.</p>';
+            return;
+        }
+
+        const list = document.createElement('div');
+        list.className = 'mt-4 grid gap-3 sm:grid-cols-2';
+
+        items.slice(0, 10).forEach((item) => {
+            const id = item._id ?? item.id ?? '';
+            const name = item.name ?? item.displayName ?? id;
+
+            const card = document.createElement('div');
+            card.className = 'rounded-md border border-gray-200 bg-white p-3 text-sm shadow-sm';
+            card.innerHTML = `
+                <p class="font-medium text-gray-800">${escapeHtml(name)}</p>
+                <p class="mt-1 text-xs text-gray-500">ID: <span class="font-mono">${escapeHtml(id)}</span></p>
+                ${isReference ? `<p class="mt-1 text-xs text-gray-400">Reference item preview</p>` : ''}
+            `;
+
+            list.appendChild(card);
+        });
+
+        container.innerHTML = `
+            <div class="flex items-center justify-between">
+                <h4 class="text-sm font-semibold text-gray-700">${isReference ? 'Reference items preview' : 'Collection items preview'}</h4>
+                <span class="text-xs text-gray-400">Showing ${Math.min(items.length, 10)} of ${items.length}</span>
+            </div>
+        `;
+        container.appendChild(list);
     }
 
     async function callApi(body) {
@@ -769,6 +851,14 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
         blogGeneratorContainer.innerHTML = `<p class="text-center text-gray-500">${escapeHtml(message)}</p>`;
+    }
+
+    function resetItemsUI(message = 'Select a collection to view its items.') {
+        if (!itemsListContainer) {
+            return;
+        }
+
+        itemsListContainer.innerHTML = `<p class="text-center text-gray-500">${escapeHtml(message)}</p>`;
     }
 
     function toggleGeneratorControls(disabled) {
