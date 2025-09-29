@@ -156,7 +156,7 @@ function generateWithGemini(string $model, string $promptText, string $apiKey): 
     $resolvedModel = resolveGeminiModel($model);
 
     try {
-        $response = $httpClient->request('POST', "https://generativelanguage.googleapis.com/v1beta/models/{$resolvedModel}:generateContent", [
+        $response = $httpClient->request('POST', "https://generativelanguage.googleapis.com/v1/models/{$resolvedModel}:generateContent", [
             'query' => ['key' => $apiKey],
             'json' => [
                 'contents' => [
