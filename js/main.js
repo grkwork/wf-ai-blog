@@ -358,6 +358,10 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         const editableFields = selectedCollectionFields.filter(isFieldEditable);
+        const unsupportedRequired = selectedCollectionFields.filter((field) => {
+            const required = field.isRequired === true || field.required === true;
+            return required && !isFieldEditable(field);
+        });
 
         const referenceFields = editableFields.filter((field) => REFERENCE_FIELD_TYPES.has(field.type ?? ''));
         const referenceSelectors = referenceFields.length > 0
