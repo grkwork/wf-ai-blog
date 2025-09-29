@@ -196,22 +196,51 @@ document.addEventListener('DOMContentLoaded', () => {
                 return;
             }
 
+            console.log('Debugging reference field:', field);
+
             const collectionId = field.collectionId
                 ?? field.referenceCollectionId
                 ?? field.collection
                 ?? field.collectionIdSlug
                 ?? field.collectionSlug
                 ?? (field.reference?.collectionId ?? null);
+                
+            console.log(`Collection ID for ${slug}:`, collectionId);
+            
             if (!collectionId) {
+                console.log(`No collection ID found for field ${slug}`);
+                console.log('Trying to use current collection items as fallback...');
+                
+                // Fallback: try to use the current collection's items
+                try {
+                    const currentCollectionId = selectedCollection?.id;
+                    if (currentCollectionId) {
+                        console.log(`Using current collection ${currentCollectionId} as fallback for ${slug}`);
+                        const response = await callApi({ action: 'list-collection-items', collectionId: currentCollectionId });
+                        console.log('Fallback collection items response:', response);
+                        const items = Array.isArray(response.items) ? response.items : [];
+                        referenceCollections[slug] = items;
+                        referenceSelection[slug] = items[0]?._id ?? items[0]?.id ?? '';
+                        console.log(`Loaded ${items.length} fallback items for ${slug}:`, items);
+                    }
+                } catch (fallbackError) {
+                    console.error(`Fallback also failed for ${slug}:`, fallbackError);
+                    referenceCollections[slug] = [];
+                    referenceSelection[slug] = '';
+                }
                 return;
             }
 
             try {
+                console.log(`Fetching items for collection ${collectionId}...`);
                 const response = await callApi({ action: 'list-reference-items', collectionId });
+                console.log('Reference items response:', response);
                 const items = Array.isArray(response.items) ? response.items : [];
                 referenceCollections[slug] = items;
                 referenceSelection[slug] = items[0]?._id ?? items[0]?.id ?? '';
-            } catch (_error) {
+                console.log(`Loaded ${items.length} items for ${slug}:`, items);
+            } catch (error) {
+                console.error(`Error fetching reference items for ${slug}:`, error);
                 referenceCollections[slug] = [];
                 referenceSelection[slug] = '';
             }
@@ -502,6 +531,22 @@ document.addEventListener('DOMContentLoaded', () => {
         initializeReferenceSelections(editableFields);
     }
 
+    // Debug function - call from browser console: debugReferenceFields()
+    window.debugReferenceFields = function() {
+        console.log('=== REFERENCE FIELDS DEBUG ===');
+        console.log('Selected collection:', selectedCollection);
+        console.log('Selected collection fields:', selectedCollectionFields);
+        console.log('Reference collections:', referenceCollections);
+        console.log('Reference selection:', referenceSelection);
+        
+        const referenceFields = selectedCollectionFields.filter((field) => REFERENCE_FIELD_TYPES.has(field.type ?? ''));
+        console.log('Reference fields found:', referenceFields);
+        
+        referenceFields.forEach(field => {
+            console.log(`Field ${field.slug}:`, field);
+        });
+    };
+
     function initializeReferenceSelections(editableFields) {
         const referenceFields = editableFields.filter((field) => REFERENCE_FIELD_TYPES.has(field.type ?? ''));
         
@@ -526,6 +571,24 @@ document.addEventListener('DOMContentLoaded', () => {
         const label = field.displayName ?? field.name ?? slug;
         const items = referenceCollections[slug] ?? [];
         const selected = referenceSelection[slug] ?? items[0]?._id ?? items[0]?.id ?? '';
+
+        console.log(`Rendering reference selector for ${slug}:`, {
+            items: items,
+            selected: selected,
+            referenceCollections: referenceCollections
+        });
+
+        if (items.length === 0) {
+            return `
+                <div>
+                    <label class="block text-sm font-medium text-gray-700" for="reference-select-${escapeHtml(slug)}">${escapeHtml(label)} (Reference)</label>
+                    <select id="reference-select-${escapeHtml(slug)}" data-reference-slug="${escapeHtml(slug)}" class="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500" disabled>
+                        <option>No items available</option>
+                    </select>
+                    <p class="text-xs text-red-500 mt-1">No reference items found for this field</p>
+                </div>
+            `;
+        }
 
         return `
             <div>
