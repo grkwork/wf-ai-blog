@@ -1027,8 +1027,10 @@ document.addEventListener('DOMContentLoaded', () => {
         toggleDraftControls(true);
 
         try {
-            console.log('Draft payload:', payload);
-            console.log('Collection ID:', selectedCollection.id);
+        console.log('Draft payload:', payload);
+        console.log('Collection ID:', selectedCollection.id);
+        console.log('Payload keys:', Object.keys(payload));
+        console.log('Multi-reference fields:', Object.keys(payload).filter(key => Array.isArray(payload[key])));
             
             const response = await callApi({
                 action: 'create-draft',
@@ -1094,8 +1096,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 payload[key] = Boolean(value);
             }
             
-            // Ensure reference fields are strings (IDs)
-            if (key === 'category' || key === 'author' || key.includes('reference')) {
+            // Handle multi-reference fields (convert comma-separated to array)
+            if (key.includes('category') && typeof value === 'string' && value.includes(',')) {
+                payload[key] = value.split(',').map(id => id.trim()).filter(id => id.length > 0);
+            }
+            // Handle single reference fields
+            else if (key === 'author' || (key.includes('reference') && !key.includes('category'))) {
                 if (typeof value !== 'string') {
                     payload[key] = String(value);
                 }

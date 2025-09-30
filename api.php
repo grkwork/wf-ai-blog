@@ -297,10 +297,16 @@ function handleCreateDraft(Client $client, string $token, ?string $collectionId,
             continue;
         }
         
-        // Ensure proper data types
-        if (in_array($key, ['featured', '_archived', '_draft'])) {
+        // Handle multi-reference fields (arrays)
+        if (is_array($value)) {
+            $cleanedFields[$key] = $value;
+        }
+        // Ensure proper data types for boolean fields
+        elseif (in_array($key, ['featured', '_archived', '_draft'])) {
             $cleanedFields[$key] = (bool) $value;
-        } else {
+        } 
+        // Handle other fields
+        else {
             $cleanedFields[$key] = $value;
         }
     }
@@ -316,11 +322,13 @@ function handleCreateDraft(Client $client, string $token, ?string $collectionId,
     // Debug logging
     error_log('Creating draft with payload: ' . json_encode($payload));
     error_log('Collection ID: ' . $collectionId);
+    error_log('Cleaned fields: ' . json_encode($cleanedFields));
 
     try {
         $response = $client->request('POST', "https://api.webflow.com/v2/collections/{$collectionId}/items", [
             'headers' => baseWebflowHeaders($token),
             'json' => $payload,
+            'timeout' => 30,
         ]);
 
         outputResponseBody($response);
@@ -343,13 +351,17 @@ function handleCreateDraft(Client $client, string $token, ?string $collectionId,
             
             // Log the full error for debugging
             error_log('Webflow API Error: ' . $errorBody);
+            error_log('Error Status Code: ' . $statusCode);
+            error_log('Error Data: ' . json_encode($errorData));
             
             http_response_code($statusCode);
             echo json_encode([
                 'message' => $errorMessage, 
                 'details' => $errorData,
                 'payload' => $payload,
-                'collectionId' => $collectionId
+                'collectionId' => $collectionId,
+                'statusCode' => $statusCode,
+                'rawError' => $errorBody
             ]);
         } else {
             throw new RuntimeException('Network error: Unable to connect to Webflow API.');
