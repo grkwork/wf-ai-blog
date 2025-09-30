@@ -193,11 +193,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
     async function populateReferenceMetadata() {
         if (!Array.isArray(selectedCollectionFields)) {
+            console.log('No selectedCollectionFields available');
             return;
         }
 
         const referenceFields = selectedCollectionFields.filter((field) => REFERENCE_FIELD_TYPES.has(field.type ?? ''));
+        console.log('Reference fields to populate:', referenceFields);
         if (referenceFields.length === 0) {
+            console.log('No reference fields found');
             return;
         }
 
@@ -214,6 +217,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 ?? field.collectionSlug
                 ?? field.validations?.collectionId
                 ?? (field.reference?.collectionId ?? null);
+            
+            console.log(`Field ${slug} collection ID:`, collectionId);
+            console.log(`Field ${slug} full field data:`, field);
             
             if (!collectionId) {
                 console.log(`No collection ID found for field ${slug}`);
@@ -456,12 +462,17 @@ document.addEventListener('DOMContentLoaded', () => {
         });
 
         const referenceFields = editableFields.filter((field) => REFERENCE_FIELD_TYPES.has(field.type ?? ''));
+        console.log('All field types:', editableFields.map(f => ({ slug: f.slug, type: f.type, displayName: f.displayName })));
+        console.log('Reference fields found:', referenceFields);
+        console.log('Reference collections:', referenceCollections);
+        
         const referenceSelectors = referenceFields.length > 0
             ? `<div class="space-y-3">
                     <h4 class="text-sm font-semibold text-gray-700">Reference Collections</h4>
                     ${referenceFields.map((field) => renderReferenceSelector(field)).join('')}
+                    <p class="text-xs text-gray-500">Found ${referenceFields.length} reference field(s)</p>
                </div>`
-            : '';
+            : '<p class="text-xs text-gray-500">No reference fields found in this collection</p>';
 
         blogGeneratorContainer.innerHTML = `
             <section class="bg-white border border-gray-200 rounded-lg p-6 shadow-sm">
@@ -637,6 +648,13 @@ document.addEventListener('DOMContentLoaded', () => {
         const label = field.displayName ?? field.name ?? slug;
         const items = referenceCollections[slug] ?? [];
         const isMultiReference = MULTI_REFERENCE_FIELD_TYPES.has(field.type ?? '');
+        
+        console.log(`Rendering reference selector for ${slug}:`, {
+            field,
+            items: items.length,
+            isMultiReference,
+            referenceCollections: Object.keys(referenceCollections)
+        });
         
         // Handle multi-reference selections
         const selected = isMultiReference 
