@@ -148,7 +148,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
     async function fetchSites() {
         loadSitesBtn.disabled = true;
-        sitesListContainer.innerHTML = '<p class="text-center text-sky-600">Loading sites</p>';
+        sitesListContainer.innerHTML = `
+            <div class="flex items-center justify-center py-8">
+                <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-sky-600"></div>
+                <span class="ml-3 text-sky-600">Loading sites...</span>
+            </div>
+        `;
         resetCollectionsUI();
         resetFieldsUI();
         resetBlogGenerator();
@@ -342,62 +347,107 @@ document.addEventListener('DOMContentLoaded', () => {
         sitesListContainer.innerHTML = '';
 
         if (!Array.isArray(sites) || sites.length === 0) {
-            sitesListContainer.innerHTML = '<p class="text-center text-gray-500">No sites found for this token.</p>';
+            sitesListContainer.innerHTML = `
+                <div class="text-center py-12">
+                    <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.172 16.172a4 4 0 015.656 0M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                    </svg>
+                    <h3 class="mt-2 text-sm font-medium text-gray-900">No sites found</h3>
+                    <p class="mt-1 text-sm text-gray-500">No sites found for this token.</p>
+                </div>
+            `;
             return;
         }
 
-        const list = document.createElement('ul');
-        list.className = 'space-y-3';
+        // Update statistics
+        updateDashboardStats('totalSites', sites.length);
+
+        const grid = document.createElement('div');
+        grid.className = 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6';
 
         sites.forEach((site) => {
-            const listItem = document.createElement('li');
-            listItem.className = 'p-4 bg-white border rounded-md shadow-sm flex flex-col gap-3 sm:flex-row sm:justify-between sm:items-center transition-shadow duration-200 hover:shadow-lg';
-            listItem.innerHTML = `
-                <div class="flex-1 min-w-0">
-                    <p class="font-semibold text-gray-800 truncate">${escapeHtml(site.displayName ?? site.name ?? 'Untitled Site')}</p>
-                    <p class="text-sm text-gray-500 truncate">${escapeHtml(site.previewUrl ?? site.publicUrl ?? 'No preview URL')}</p>
+            const card = document.createElement('div');
+            card.className = 'bg-white border border-gray-200 rounded-xl p-6 hover:shadow-lg transition-all duration-200 cursor-pointer';
+            card.innerHTML = `
+                <div class="flex items-start justify-between mb-4">
+                    <div class="flex-1 min-w-0">
+                        <h3 class="text-lg font-semibold text-gray-900 truncate">${escapeHtml(site.displayName ?? site.name ?? 'Untitled Site')}</h3>
+                        <p class="text-sm text-gray-500 mt-1 truncate">${escapeHtml(site.previewUrl ?? site.publicUrl ?? 'No preview URL')}</p>
+                    </div>
+                    <div class="ml-4 flex-shrink-0">
+                        <div class="w-3 h-3 bg-green-400 rounded-full"></div>
+                    </div>
                 </div>
-                <div class="flex items-center gap-3">
-                    <span class="hidden sm:inline text-xs text-gray-400">${escapeHtml(site.id ?? site._id ?? '')}</span>
-                    <button class="text-sm bg-black text-white py-2 px-4 rounded-md hover:bg-gray-800" data-site-id="${escapeHtml(site.id ?? site._id ?? '')}">
-                        Select
+                <div class="flex items-center justify-between">
+                    <span class="text-xs text-gray-400 font-mono">${escapeHtml(site.id ?? site._id ?? '').substring(0, 8)}...</span>
+                    <button class="bg-black text-white px-4 py-2 rounded-lg hover:bg-gray-800 transition duration-200 text-sm font-medium" data-site-id="${escapeHtml(site.id ?? site._id ?? '')}">
+                        Select Site
                     </button>
                 </div>
             `;
-            list.appendChild(listItem);
+            grid.appendChild(card);
         });
 
-        sitesListContainer.appendChild(list);
+        sitesListContainer.appendChild(grid);
+    }
+
+    function updateDashboardStats(statType, value) {
+        const element = document.getElementById(statType);
+        if (element) {
+            element.textContent = value;
+            localStorage.setItem(statType, value);
+        }
     }
 
     function displayCollections(collections) {
         collectionsListContainer.innerHTML = '';
 
         if (!Array.isArray(collections) || collections.length === 0) {
-            collectionsListContainer.innerHTML = '<p class="text-center text-gray-500">No collections found for this site.</p>';
+            collectionsListContainer.innerHTML = `
+                <div class="text-center py-8">
+                    <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path>
+                    </svg>
+                    <h3 class="mt-2 text-sm font-medium text-gray-900">No collections found</h3>
+                    <p class="mt-1 text-sm text-gray-500">No collections found for this site.</p>
+                </div>
+            `;
             return;
         }
 
-        const list = document.createElement('ul');
-        list.className = 'space-y-2';
+        // Update statistics
+        updateDashboardStats('totalCollections', collections.length);
+
+        const grid = document.createElement('div');
+        grid.className = 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4';
 
         collections.forEach((collection) => {
-            const listItem = document.createElement('li');
-            listItem.className = 'p-3 bg-white border rounded-md flex items-center justify-between gap-3 cursor-pointer hover:bg-gray-50 transition';
-            listItem.dataset.collectionId = collection.id ?? collection._id ?? '';
-            listItem.dataset.collectionName = collection.displayName ?? collection.name ?? '';
-            listItem.dataset.collectionSlug = collection.slug ?? '';
-            listItem.innerHTML = `
-                <div class="flex flex-col gap-1">
-                    <span class="font-medium text-gray-800">${escapeHtml(collection.displayName ?? collection.name ?? 'Unnamed Collection')}</span>
-                    <span class="text-xs text-gray-500">Slug: ${escapeHtml(collection.slug ?? 'n/a')}</span>
+            const card = document.createElement('div');
+            card.className = 'bg-white border border-gray-200 rounded-lg p-4 hover:shadow-md transition-all duration-200 cursor-pointer';
+            card.dataset.collectionId = collection.id ?? collection._id ?? '';
+            card.dataset.collectionName = collection.displayName ?? collection.name ?? '';
+            card.dataset.collectionSlug = collection.slug ?? '';
+            card.innerHTML = `
+                <div class="flex items-start justify-between mb-3">
+                    <div class="flex-1 min-w-0">
+                        <h3 class="text-lg font-semibold text-gray-900 truncate">${escapeHtml(collection.displayName ?? collection.name ?? 'Unnamed Collection')}</h3>
+                        <p class="text-sm text-gray-500 mt-1">Slug: ${escapeHtml(collection.slug ?? 'n/a')}</p>
+                    </div>
+                    <div class="ml-3 flex-shrink-0">
+                        <svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+                        </svg>
+                    </div>
                 </div>
-                <span class="text-xs text-sky-600">View fields</span>
+                <div class="flex items-center justify-between">
+                    <span class="text-xs text-gray-400 font-mono">${escapeHtml(collection.id ?? collection._id ?? '').substring(0, 8)}...</span>
+                    <span class="text-sm text-sky-600 font-medium">View Fields</span>
+                </div>
             `;
-            list.appendChild(listItem);
+            grid.appendChild(card);
         });
 
-        collectionsListContainer.appendChild(list);
+        collectionsListContainer.appendChild(grid);
     }
 
     function displayFields(fields) {
@@ -446,12 +496,27 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         if (placeholderMessage) {
-            blogGeneratorContainer.innerHTML = `<p class="text-center text-gray-500">${escapeHtml(placeholderMessage)}</p>`;
+            blogGeneratorContainer.innerHTML = `
+                <div class="text-center py-8">
+                    <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"></path>
+                    </svg>
+                    <h3 class="mt-2 text-sm font-medium text-gray-900">${escapeHtml(placeholderMessage)}</h3>
+                </div>
+            `;
             return;
         }
 
         if (!selectedCollection) {
-            blogGeneratorContainer.innerHTML = '<p class="text-center text-gray-500">Pick a collection to enable the AI blog generator.</p>';
+            blogGeneratorContainer.innerHTML = `
+                <div class="text-center py-8">
+                    <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"></path>
+                    </svg>
+                    <h3 class="mt-2 text-sm font-medium text-gray-900">AI Blog Generator</h3>
+                    <p class="mt-1 text-sm text-gray-500">Pick a collection to enable the AI blog generator.</p>
+                </div>
+            `;
             return;
         }
 
