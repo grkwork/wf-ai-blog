@@ -154,13 +154,16 @@
         // Theme toggle functionality
         function initializeTheme() {
             const themeToggle = document.getElementById('themeToggle');
-            const sunIcon = document.getElementById('sunIcon');
-            const moonIcon = document.getElementById('moonIcon');
-            const themeText = document.getElementById('themeText');
             
             // Check for saved theme preference or default to light mode
             const currentTheme = localStorage.getItem('theme') || 'light';
-            document.documentElement.classList.toggle('dark', currentTheme === 'dark');
+            
+            // Apply theme
+            if (currentTheme === 'dark') {
+                document.documentElement.classList.add('dark');
+            } else {
+                document.documentElement.classList.remove('dark');
+            }
             
             // Update button text and icons
             updateThemeButton(currentTheme);
@@ -169,7 +172,12 @@
                 const isDark = document.documentElement.classList.contains('dark');
                 const newTheme = isDark ? 'light' : 'dark';
                 
-                document.documentElement.classList.toggle('dark');
+                if (newTheme === 'dark') {
+                    document.documentElement.classList.add('dark');
+                } else {
+                    document.documentElement.classList.remove('dark');
+                }
+                
                 localStorage.setItem('theme', newTheme);
                 updateThemeButton(newTheme);
             });

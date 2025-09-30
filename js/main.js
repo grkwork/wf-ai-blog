@@ -453,7 +453,14 @@ document.addEventListener('DOMContentLoaded', () => {
                 
                 resetFieldsUI('Loading fields');
                 resetBlogGenerator('Loading collection details');
-                resetItemsUI('Loading items');
+                
+                // Show loading state for items
+                itemsListContainer.innerHTML = `
+                    <div class="flex items-center justify-center py-8">
+                        <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-sky-600"></div>
+                        <span class="ml-3 text-sky-600">Loading items...</span>
+                    </div>
+                `;
                 
                 fetchCollectionFields(collectionId);
                 fetchCollectionItems(collectionId);
@@ -738,6 +745,10 @@ document.addEventListener('DOMContentLoaded', () => {
         // Update the display for multi-reference fields
         const draftFieldInput = document.querySelector(`#draft-field-${slug}`);
         if (draftFieldInput) {
+            // Update the input value with comma-separated IDs
+            draftFieldInput.value = selectedIds.join(',');
+            
+            // Update the display name if it exists
             const displaySpan = draftFieldInput.parentElement.querySelector('span');
             if (displaySpan) {
                 const items = referenceCollections[slug] ?? [];
