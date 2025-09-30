@@ -259,7 +259,7 @@ document.addEventListener('DOMContentLoaded', () => {
         try {
             const response = await callApi({ action: 'list-collection-items', collectionId });
             const items = Array.isArray(response.items) ? response.items : [];
-            renderItemsReview(itemsListContainer, items);
+            displayItems(items);
         } catch (_error) {
             resetItemsUI('Unable to load collection items.');
         }
