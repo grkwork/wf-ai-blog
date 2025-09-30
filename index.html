@@ -2,20 +2,13 @@
 
 <div class="w-full max-w-2xl mx-auto p-6 bg-gray-50 rounded-lg shadow-md">
   
-  <h2 class="text-2xl font-bold mb-4 text-gray-800">Connect Your Account</h2>
-  <p class="text-gray-600 mb-6">Enter your Access Token to load your available sites.</p>
+  <h2 class="text-2xl font-bold mb-4 text-gray-800">AI Blog Generator</h2>
+  <p class="text-gray-600 mb-6">Load your available sites and start generating AI-powered blog content.</p>
 
-  <form id="apiKeyForm" class="flex items-center gap-3">
-    <input 
-      type="password" 
-      id="apiKeyInput" 
-      placeholder="Enter your Access Token here" 
-      class="flex-grow p-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-sky-500 focus:outline-none transition"
-      required
-    />
+  <div class="flex items-center gap-3">
     <button 
-      type="submit" 
-      id="submitBtn"
+      type="button" 
+      id="loadSitesBtn"
       class="bg-black text-white font-semibold py-3 px-5 rounded-md hover:bg-gray-800 transition disabled:bg-gray-400">
       Load Sites
     </button>
@@ -25,7 +18,7 @@
       class="bg-sky-600 text-white font-semibold py-3 px-5 rounded-md hover:bg-sky-700 transition">
       Clear Cache
     </button>
-  </form>
+  </div>
 
   <div id="sitesListContainer" class="mt-8">
     <p class="text-center text-gray-500">Your sites will appear here...</p>

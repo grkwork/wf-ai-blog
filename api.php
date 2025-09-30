@@ -24,7 +24,9 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 }
 
 $input = json_decode(file_get_contents('php://input'), true);
-$token = $input['apiKey'] ?? null;
+
+// Use Webflow API key from config.php if available, otherwise from user input
+$token = $WEBFLOW_API_KEY ?? $input['apiKey'] ?? null;
 $siteId = $input['siteId'] ?? null;
 $collectionId = $input['collectionId'] ?? null;
 $selectedFields = $input['fields'] ?? [];
@@ -309,7 +311,7 @@ function buildBlogPrompt(string $keyword, array $fields): string
     $lines[] = "Return only valid JSON with keys that exactly match the provided field slugs. Do not wrap the JSON in quotes or code fences.";
     $lines[] = "For each field, follow the instructions below:";
     $lines[] = "";
-    $lines[] = "IMPORTANT FOR IMAGES: Use reliable, accessible free image sources. Prefer these sources in order:";
+    $lines[] = "IMPORTANT FOR IMAGES: Find images related to the keyword. If unable to find keyword-specific images, use images related to insurance or home healthcare. Use reliable, accessible free image sources. Prefer these sources in order:";
     $lines[] = "1. Pexels (https://images.pexels.com/photos/) - Use direct image URLs like: https://images.pexels.com/photos/1234567/pexels-photo-1234567.jpeg";
     $lines[] = "2. Pixabay (https://pixabay.com/photos/) - Use direct image URLs";
     $lines[] = "3. Wikimedia Commons (https://commons.wikimedia.org/) - Use direct image URLs";
@@ -331,7 +333,7 @@ function buildBlogPrompt(string $keyword, array $fields): string
         $instruction = match ($type) {
             'plaintext' => 'Provide concise text.',
             'slug' => 'Generate a lowercase, hyphen-separated URL slug based on the "name" field.',
-            'richtext' => 'Return rich, well-structured HTML. Include headings (h2, h3), paragraphs (p), lists (ul, ol). Do not include any images.',
+            'richtext' => 'Return rich, well-structured HTML. Include headings (h2, h3), paragraphs (p), lists (ul, ol), relevant links, and factual information. Do not include any images.',
             'image' => 'Return a direct HTTPS URL to a relevant, high-quality, royalty-free image from Pexels, Pixabay, or Wikimedia Commons. Ensure the URL is accessible and returns a valid image.',
             'switch', 'boolean' => 'Return true or false.',
             'reference' => 'Return a related item identifier as a string.',

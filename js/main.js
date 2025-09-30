@@ -61,10 +61,13 @@ document.addEventListener('DOMContentLoaded', () => {
     resetFieldsUI();
     resetBlogGenerator();
 
-    apiKeyForm.addEventListener('submit', async (event) => {
-        event.preventDefault();
-        await fetchSites();
-    });
+    // Load sites button (no API key needed - uses config.php)
+    const loadSitesBtn = document.getElementById('loadSitesBtn');
+    if (loadSitesBtn) {
+        loadSitesBtn.addEventListener('click', async () => {
+            await fetchSites();
+        });
+    }
 
     // Cache clear button
     const clearCacheBtn = document.getElementById('clearCacheBtn');
@@ -93,7 +96,7 @@ document.addEventListener('DOMContentLoaded', () => {
         lastKeyword = '';
 
         highlightSelectedSite(button.closest('li'));
-        resetCollectionsUI('Loading collections…');
+        resetCollectionsUI('Loading collections');
         resetFieldsUI();
         resetBlogGenerator('Select a collection to enable the AI generator.');
         resetItemsUI();
@@ -123,22 +126,16 @@ document.addEventListener('DOMContentLoaded', () => {
         lastKeyword = '';
 
         highlightSelectedCollection(listItem);
-        resetFieldsUI('Loading fields…');
-        resetBlogGenerator('Loading collection details…');
-        resetItemsUI('Loading items…');
+        resetFieldsUI('Loading fields');
+        resetBlogGenerator('Loading collection details');
+        resetItemsUI('Loading items');
 
         fetchCollectionFields(collectionId);
     });
 
     async function fetchSites() {
-        const key = apiKeyInput.value.trim();
-        if (!key) {
-            alert('Please enter an Access Token.');
-            return;
-        }
-
-        submitBtn.disabled = true;
-        sitesListContainer.innerHTML = '<p class="text-center text-blue-600">Loading sites…</p>';
+        loadSitesBtn.disabled = true;
+        sitesListContainer.innerHTML = '<p class="text-center text-sky-600">Loading sites</p>';
         resetCollectionsUI();
         resetFieldsUI();
         resetBlogGenerator();
@@ -149,12 +146,12 @@ document.addEventListener('DOMContentLoaded', () => {
         } catch (error) {
             sitesListContainer.innerHTML = `<p class="text-center text-red-600">${escapeHtml(error.message)}</p>`;
         } finally {
-            submitBtn.disabled = false;
+            loadSitesBtn.disabled = false;
         }
     }
 
     async function fetchCollections(siteId) {
-        resetCollectionsUI('Loading collections…');
+        resetCollectionsUI('Loading collections');
 
         try {
             const data = await callApi({ action: 'list-collections', siteId });
@@ -302,15 +299,10 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     async function callApi(body) {
-        const key = apiKeyInput.value.trim();
-        if (!key) {
-            throw new Error('Access Token is required for this request.');
-        }
-
         const response = await fetch(apiUrl, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ apiKey: key, ...body }),
+            body: JSON.stringify(body),
         });
 
         const text = await response.text();
