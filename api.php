@@ -263,24 +263,55 @@ function resolveGeminiModel(string $model): string
     return $map[$model] ?? $model;
 }
 
-function requestGemini(Client $client, string $apiVersion, string $model, string $promptText, string $apiKey)
+function requestGemini(Client $client, string $apiVersion, string $model, string $promptText, string $apiKey, int $maxRetries = 3)
 {
-    return $client->request('POST', "https://generativelanguage.googleapis.com/{$apiVersion}/models/{$model}:generateContent", [
-        'headers' => [
-            'x-goog-api-key' => $apiKey,
-            'Content-Type' => 'application/json',
-        ],
-        'json' => [
-            'contents' => [
-                [
-                    'parts' => [
-                        ['text' => $promptText],
+    $lastException = null;
+    
+    for ($attempt = 1; $attempt <= $maxRetries; $attempt++) {
+        try {
+            // Increase timeout with each attempt
+            $timeout = 30 + ($attempt * 15); // 30s, 45s, 60s
+            
+            return $client->request('POST', "https://generativelanguage.googleapis.com/{$apiVersion}/models/{$model}:generateContent", [
+                'headers' => [
+                    'x-goog-api-key' => $apiKey,
+                    'Content-Type' => 'application/json',
+                ],
+                'json' => [
+                    'contents' => [
+                        [
+                            'parts' => [
+                                ['text' => $promptText],
+                            ],
+                        ],
                     ],
                 ],
-            ],
-        ],
-        'timeout' => 30,
-    ]);
+                'timeout' => $timeout,
+                'connect_timeout' => 10,
+            ]);
+        } catch (GuzzleException $exception) {
+            $lastException = $exception;
+            
+            // Check if it's a timeout error
+            if (strpos($exception->getMessage(), 'Operation timed out') !== false || 
+                strpos($exception->getMessage(), 'cURL error 28') !== false) {
+                
+                if ($attempt < $maxRetries) {
+                    // Exponential backoff: wait 2^attempt seconds
+                    $waitTime = pow(2, $attempt);
+                    error_log("Gemini API timeout on attempt {$attempt}, retrying in {$waitTime} seconds...");
+                    sleep($waitTime);
+                    continue;
+                }
+            }
+            
+            // If it's not a timeout or we've exhausted retries, throw immediately
+            throw $exception;
+        }
+    }
+    
+    // If we get here, all retries failed
+    throw $lastException;
 }
 
 function handleCreateDraft(Client $client, string $token, ?string $collectionId, array $fields): void

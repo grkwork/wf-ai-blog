@@ -1073,6 +1073,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 errorMessage += '\n\n💡 Try switching to Gemini models or wait a few minutes before retrying.';
             }
             
+            // Provide helpful guidance for timeout errors
+            if (errorMessage.includes('Operation timed out') || errorMessage.includes('cURL error 28')) {
+                errorMessage += '\n\n⏱️ The request timed out. This can happen with large prompts or slow network connections. The system will automatically retry with longer timeouts.';
+            }
+            
             setBlogGeneratorStatus(`Generation failed: ${errorMessage}`, 'error');
         } finally {
             toggleGeneratorControls(false);
