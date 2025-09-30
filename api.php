@@ -289,18 +289,72 @@ function handleCreateDraft(Client $client, string $token, ?string $collectionId,
         throw new RuntimeException('collectionId is required to create a draft.');
     }
 
+    // Clean and validate fields
+    $cleanedFields = [];
+    foreach ($fields as $key => $value) {
+        // Skip empty values
+        if ($value === null || $value === '' || $value === false) {
+            continue;
+        }
+        
+        // Ensure proper data types
+        if (in_array($key, ['featured', '_archived', '_draft'])) {
+            $cleanedFields[$key] = (bool) $value;
+        } else {
+            $cleanedFields[$key] = $value;
+        }
+    }
+
     // Webflow API v2 expects fieldData structure
     $payload = [
-        'fieldData' => $fields,
-        'isDraft' => true
+        'fieldData' => $cleanedFields,
+        'isDraft' => true,
+        '_archived' => false,
+        '_draft' => true
     ];
 
-    $response = $client->request('POST', "https://api.webflow.com/v2/collections/{$collectionId}/items", [
-        'headers' => baseWebflowHeaders($token),
-        'json' => $payload,
-    ]);
+    // Debug logging
+    error_log('Creating draft with payload: ' . json_encode($payload));
+    error_log('Collection ID: ' . $collectionId);
 
-    outputResponseBody($response);
+    try {
+        $response = $client->request('POST', "https://api.webflow.com/v2/collections/{$collectionId}/items", [
+            'headers' => baseWebflowHeaders($token),
+            'json' => $payload,
+        ]);
+
+        outputResponseBody($response);
+    } catch (RequestException $e) {
+        if ($e->hasResponse()) {
+            $response = $e->getResponse();
+            $statusCode = $response->getStatusCode();
+            $errorBody = $response->getBody()->getContents();
+            $errorData = json_decode($errorBody, true);
+            
+            // Provide more detailed error information
+            $errorMessage = 'Validation Error';
+            if (isset($errorData['message'])) {
+                $errorMessage = $errorData['message'];
+            } elseif (isset($errorData['errors'])) {
+                $errorMessage = 'Validation Error: ' . json_encode($errorData['errors']);
+            } elseif (isset($errorData['details'])) {
+                $errorMessage = 'Validation Error: ' . json_encode($errorData['details']);
+            }
+            
+            // Log the full error for debugging
+            error_log('Webflow API Error: ' . $errorBody);
+            
+            http_response_code($statusCode);
+            echo json_encode([
+                'message' => $errorMessage, 
+                'details' => $errorData,
+                'payload' => $payload,
+                'collectionId' => $collectionId
+            ]);
+        } else {
+            throw new RuntimeException('Network error: Unable to connect to Webflow API.');
+        }
+    }
 }
 
 function buildBlogPrompt(string $keyword, array $fields): string

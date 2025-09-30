@@ -1027,13 +1027,19 @@ document.addEventListener('DOMContentLoaded', () => {
         toggleDraftControls(true);
 
         try {
-            await callApi({
+            console.log('Draft payload:', payload);
+            console.log('Collection ID:', selectedCollection.id);
+            
+            const response = await callApi({
                 action: 'create-draft',
                 targetCollectionId: selectedCollection.id,
                 fields: payload,
             });
+            
+            console.log('Draft creation response:', response);
             setBlogGeneratorStatus('Draft created in Webflow. Review it inside your CMS drafts.', 'success');
         } catch (error) {
+            console.error('Draft creation error:', error);
             setBlogGeneratorStatus(`Draft creation failed: ${error.message}`, 'error');
         } finally {
             toggleDraftControls(false);
@@ -1045,12 +1051,17 @@ document.addEventListener('DOMContentLoaded', () => {
 
         Object.entries(draftFieldValues).forEach(([slug, value]) => {
             if (typeof value === 'string') {
-                payload[slug] = value.trim();
+                const trimmedValue = value.trim();
+                // Only include non-empty strings
+                if (trimmedValue.length > 0) {
+                    payload[slug] = trimmedValue;
+                }
             } else if (value !== null && value !== undefined) {
                 payload[slug] = value;
             }
         });
 
+        // Ensure required fields have values
         if (!payload.name || payload.name.length === 0) {
             const fallbackTitle = lastKeyword ? capitalizeFirstLetter(lastKeyword) : 'AI Draft';
             payload.name = fallbackTitle;
@@ -1061,6 +1072,41 @@ document.addEventListener('DOMContentLoaded', () => {
         } else if (payload.slug) {
             payload.slug = slugify(payload.slug);
         }
+
+        // Ensure slug is valid (only letters, numbers, and dashes)
+        if (payload.slug) {
+            payload.slug = payload.slug.replace(/[^a-zA-Z0-9-]/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '');
+        }
+
+        // Remove any empty or null values that might cause validation issues
+        Object.keys(payload).forEach(key => {
+            if (payload[key] === null || payload[key] === undefined || payload[key] === '') {
+                delete payload[key];
+            }
+        });
+
+        // Validate specific field types
+        Object.keys(payload).forEach(key => {
+            const value = payload[key];
+            
+            // Ensure boolean fields are actual booleans
+            if (key === 'featured' || key === '_archived' || key === '_draft') {
+                payload[key] = Boolean(value);
+            }
+            
+            // Ensure reference fields are strings (IDs)
+            if (key === 'category' || key === 'author' || key.includes('reference')) {
+                if (typeof value !== 'string') {
+                    payload[key] = String(value);
+                }
+            }
+            
+            // Clean text fields of problematic characters
+            if (typeof value === 'string' && (key === 'name' || key === 'seo-title' || key === 'seo-meta-description')) {
+                // Remove any characters that might cause validation issues
+                payload[key] = value.replace(/[^\w\s\-.,!?]/g, '').trim();
+            }
+        });
 
         return payload;
     }
