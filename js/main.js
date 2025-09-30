@@ -1,15 +1,21 @@
 document.addEventListener('DOMContentLoaded', () => {
-    const apiKeyForm = document.getElementById('apiKeyForm');
-    const apiKeyInput = document.getElementById('apiKeyInput');
-    const submitBtn = document.getElementById('submitBtn');
+    const loadSitesBtn = document.getElementById('loadSitesBtn');
     const sitesListContainer = document.getElementById('sitesListContainer');
     const collectionsListContainer = document.getElementById('collectionsListContainer');
     const fieldsListContainer = document.getElementById('fieldsListContainer');
     const blogGeneratorContainer = document.getElementById('blogGeneratorContainer');
     const itemsListContainer = document.getElementById('itemsListContainer');
 
-    if (!apiKeyForm || !apiKeyInput || !submitBtn || !sitesListContainer || !collectionsListContainer) {
+    if (!loadSitesBtn || !sitesListContainer || !collectionsListContainer || !fieldsListContainer || !blogGeneratorContainer || !itemsListContainer) {
         console.warn('Webflow connector: Required DOM nodes are missing.');
+        console.log('Missing elements:', {
+            loadSitesBtn: !!loadSitesBtn,
+            sitesListContainer: !!sitesListContainer,
+            collectionsListContainer: !!collectionsListContainer,
+            fieldsListContainer: !!fieldsListContainer,
+            blogGeneratorContainer: !!blogGeneratorContainer,
+            itemsListContainer: !!itemsListContainer
+        });
         return;
     }
 
@@ -62,7 +68,6 @@ document.addEventListener('DOMContentLoaded', () => {
     resetBlogGenerator();
 
     // Load sites button (no API key needed - uses config.php)
-    const loadSitesBtn = document.getElementById('loadSitesBtn');
     if (loadSitesBtn) {
         loadSitesBtn.addEventListener('click', async () => {
             await fetchSites();
