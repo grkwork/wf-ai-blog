@@ -1,4 +1,10 @@
 document.addEventListener('DOMContentLoaded', () => {
+    // Check authentication first
+    if (!sessionStorage.getItem('authenticated')) {
+        window.location.href = 'index.html';
+        return;
+    }
+
     const loadSitesBtn = document.getElementById('loadSitesBtn');
     const sitesListContainer = document.getElementById('sitesListContainer');
     const collectionsListContainer = document.getElementById('collectionsListContainer');
@@ -473,19 +479,14 @@ document.addEventListener('DOMContentLoaded', () => {
                 ${referenceSelectors}
                 <form id="blogPromptForm" class="mt-4 space-y-4">
                     <div>
-                        <label for="blogKeywordInput" class="block text-sm font-medium text-gray-700">Focus keyword</label>
-                        <input id="blogKeywordInput" type="text" required placeholder="e.g. Sustainable web design" class="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                        <label for="blogKeywordInput" class="block text-sm font-medium text-gray-700">Please enter a topic</label>
+                        <input id="blogKeywordInput" type="text" required placeholder="Insurance for homecare businesses" class="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500" />
                     </div>
                     <div>
                         <label for="blogModelSelect" class="block text-sm font-medium text-gray-700">AI provider & model</label>
                         <select id="blogModelSelect" class="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500">
-                            <optgroup label="OpenAI">
-                                <option value="openai:gpt-4o-mini" selected>GPT-4o Mini (fast)</option>
-                                <option value="openai:o4-mini">o4-mini (higher quality)</option>
-                                <option value="openai:gpt-5">GPT-5 (latest, most advanced)</option>
-                            </optgroup>
                             <optgroup label="Google Gemini">
-                                <option value="gemini:gemini-2.5-flash">Gemini 2.5 Flash (fast, versatile)</option>
+                                <option value="gemini:gemini-2.5-flash" selected>Gemini 2.5 Flash (fast, versatile)</option>
                                 <option value="gemini:gemini-2.5-pro">Gemini 2.5 Pro (higher quality)</option>
                             </optgroup>
                         </select>
@@ -770,7 +771,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     async function generateBlogDraft(keyword, model, editableFields) {
         toggleGeneratorControls(true);
-        setBlogGeneratorStatus('Generating blog draft…', 'info');
+        setBlogGeneratorStatus('Generating blog draft', 'info');
 
         try {
             const metadata = serializeFieldMetadata(selectedCollectionFields);

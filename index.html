@@ -1,38 +1,85 @@
-<script src="https://cdn.tailwindcss.com"></script>
-
-<div class="w-full max-w-2xl mx-auto p-6 bg-gray-50 rounded-lg shadow-md">
-  
-  <h2 class="text-2xl font-bold mb-4 text-gray-800">AI Blog Generator</h2>
-  <p class="text-gray-600 mb-6">Load your available sites and start generating AI-powered blog content.</p>
-
-  <div class="flex items-center gap-3">
-    <button 
-      type="button" 
-      id="loadSitesBtn"
-      class="bg-black text-white font-semibold py-3 px-5 rounded-md hover:bg-gray-800 transition disabled:bg-gray-400">
-      Load Sites
-    </button>
-    <button 
-      type="button" 
-      id="clearCacheBtn"
-      class="bg-sky-600 text-white font-semibold py-3 px-5 rounded-md hover:bg-sky-700 transition">
-      Clear Cache
-    </button>
-  </div>
-
-  <div id="sitesListContainer" class="mt-8">
-    <p class="text-center text-gray-500">Your sites will appear here...</p>
-  </div>
-  
-  <div id="collectionsListContainer" class="mt-8">
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login - Homecare Protect</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 min-h-screen flex items-center justify-center">
+    <div class="w-full max-w-md mx-auto p-6">
+        <div class="bg-white rounded-lg shadow-md p-8">
+            <div class="text-center mb-8">
+                <h1 class="text-2xl font-bold text-gray-800">Login Required</h1>
+                <p class="text-gray-600 mt-2">Homecare Protect AI Powered Blog Generator</p>
+            </div>
+            
+            <form id="loginForm" class="space-y-6">
+                <div>
+                    <label for="username" class="block text-sm font-medium text-gray-700 mb-2">Username</label>
+                    <input 
+                        type="text" 
+                        id="username" 
+                        name="username" 
+                        required 
+                        class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-sky-500 focus:border-sky-500"
+                        placeholder="Enter username"
+                    />
+                </div>
+                
+                <div>
+                    <label for="password" class="block text-sm font-medium text-gray-700 mb-2">Password</label>
+                    <input 
+                        type="password" 
+                        id="password" 
+                        name="password" 
+                        required 
+                        class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-sky-500 focus:border-sky-500"
+                        placeholder="Enter password"
+                    />
+                </div>
+                
+                <button 
+                    type="submit" 
+                    class="w-full bg-black text-white py-2 px-4 rounded-md hover:bg-gray-800 transition duration-200 focus:outline-none focus:ring-2 focus:ring-sky-500"
+                >
+                    Login
+                </button>
+            </form>
+            
+            <div id="errorMessage" class="mt-4 text-red-600 text-sm text-center hidden"></div>
+        </div>
     </div>
 
-  <div id="fieldsListContainer" class="mt-8"></div>
+    <script>
+        // Check if user is already authenticated
+        if (sessionStorage.getItem('authenticated')) {
+            window.location.href = 'app.html';
+        }
 
-  <div id="blogGeneratorContainer" class="mt-8"></div>
-
-  <div id="itemsListContainer" class="mt-8"></div>
-
-</div>
-
-<script src="https://lightslategray-spoonbill-600904.hostingersite.com/js/main.js"></script>
+        document.getElementById('loginForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+            const errorMessage = document.getElementById('errorMessage');
+            
+            // Check credentials
+            if (username === 'Admin' && password === 'Homcrptr@2025') {
+                // Set authentication session
+                sessionStorage.setItem('authenticated', 'true');
+                // Redirect to main application
+                window.location.href = 'app.html';
+            } else {
+                // Show error message
+                errorMessage.textContent = 'Invalid username or password';
+                errorMessage.classList.remove('hidden');
+                
+                // Clear form
+                document.getElementById('username').value = '';
+                document.getElementById('password').value = '';
+            }
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,57 @@
+<script src="https://cdn.tailwindcss.com"></script>
+
+<div class="w-full max-w-2xl mx-auto p-6 bg-gray-50 rounded-lg shadow-md">
+  
+  <h2 class="text-2xl font-bold mb-4 text-gray-800">Homecare Protect AI Powered Blog Generator</h2>
+  <p class="text-gray-600 mb-6">Load your available sites and start generating AI-powered blog content.</p>
+
+  <div class="flex items-center gap-3">
+    <button 
+      type="button" 
+      id="loadSitesBtn"
+      class="bg-black text-white font-semibold py-3 px-5 rounded-md hover:bg-gray-800 transition disabled:bg-gray-400">
+      Load Sites
+    </button>
+    <button 
+      type="button" 
+      id="clearCacheBtn"
+      class="bg-sky-600 text-white font-semibold py-3 px-5 rounded-md hover:bg-sky-700 transition">
+      Clear Cache
+    </button>
+    <button 
+      type="button" 
+      id="logoutBtn"
+      class="bg-gray-600 text-white font-semibold py-3 px-5 rounded-md hover:bg-gray-700 transition">
+      Logout
+    </button>
+  </div>
+
+  <div id="sitesListContainer" class="mt-8">
+    <p class="text-center text-gray-500">Your sites will appear here...</p>
+  </div>
+  
+  <div id="collectionsListContainer" class="mt-8">
+    </div>
+
+  <div id="fieldsListContainer" class="mt-8"></div>
+
+  <div id="blogGeneratorContainer" class="mt-8"></div>
+
+  <div id="itemsListContainer" class="mt-8"></div>
+
+</div>
+
+<script>
+// Check if user is authenticated
+if (!sessionStorage.getItem('authenticated')) {
+    window.location.href = 'index.html';
+}
+
+// Logout functionality
+document.getElementById('logoutBtn').addEventListener('click', function() {
+    sessionStorage.removeItem('authenticated');
+    window.location.href = 'index.html';
+});
+</script>
+
+<script src="https://lightslategray-spoonbill-600904.hostingersite.com/js/main.js"></script>
