@@ -66,10 +66,6 @@ try {
         case 'create-draft':
             handleCreateDraft($client, $token, $blogCollectionId, $selectedFields);
             break;
-        case 'generate-image':
-            $keywords = $input['keywords'] ?? '';
-            handleGenerateImage($keywords, $OPENAI_API_KEY ?? null, $GEMINI_API_KEY ?? null);
-            break;
         default:
             http_response_code(400);
             echo json_encode(['message' => 'Unsupported action.']);
@@ -355,74 +351,6 @@ function buildBlogPrompt(string $keyword, array $fields): string
     return implode("\n", $lines);
 }
 
-function handleGenerateImage(string $keywords, ?string $openAiApiKey, ?string $geminiApiKey): void
-{
-    if (empty($keywords)) {
-        throw new RuntimeException('Keywords are required for image generation.');
-    }
-
-    // Try OpenAI first, then Gemini
-    if ($openAiApiKey) {
-        try {
-            $client = OpenAI::client($openAiApiKey);
-            $response = $client->images()->create([
-                'model' => 'dall-e-3',
-                'prompt' => $keywords,
-                'n' => 1,
-                'size' => '1024x1024',
-                'quality' => 'standard',
-            ]);
-            
-            $imageUrl = $response->data[0]->url ?? null;
-            if ($imageUrl) {
-                outputResponseBody(['imageUrl' => $imageUrl]);
-                return;
-            }
-        } catch (Exception $e) {
-            // Fall back to Gemini if OpenAI fails
-        }
-    }
-
-    if ($geminiApiKey) {
-        try {
-            $client = new Client();
-            $response = $client->request('POST', 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent', [
-                'headers' => [
-                    'x-goog-api-key' => $geminiApiKey,
-                    'Content-Type' => 'application/json',
-                ],
-                'json' => [
-                    'contents' => [
-                        [
-                            'parts' => [
-                                [
-                                    'text' => "Generate a high-quality image URL for: {$keywords}. Return only a direct image URL that can be used in an img src attribute."
-                                ]
-                            ]
-                        ]
-                    ]
-                ]
-            ]);
-            
-            $data = json_decode($response->getBody()->getContents(), true);
-            $text = $data['candidates'][0]['content']['parts'][0]['text'] ?? '';
-            
-            // Extract URL from response
-            if (preg_match('/https?:\/\/[^\s]+/', $text, $matches)) {
-                $imageUrl = $matches[0];
-                outputResponseBody(['imageUrl' => $imageUrl]);
-                return;
-            }
-        } catch (Exception $e) {
-            // Fall back to Unsplash
-        }
-    }
-
-    // Fallback to Unsplash
-    $encodedKeywords = urlencode($keywords);
-    $imageUrl = "https://source.unsplash.com/1024x1024/?{$encodedKeywords}";
-    outputResponseBody(['imageUrl' => $imageUrl]);
-}
 
 function baseWebflowHeaders(string $token): array
 {
