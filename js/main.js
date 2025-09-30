@@ -423,10 +423,41 @@ document.addEventListener('DOMContentLoaded', () => {
 
         collections.forEach((collection) => {
             const card = document.createElement('div');
-            card.className = 'bg-white border border-gray-200 rounded-lg p-4 hover:shadow-md transition-all duration-200 cursor-pointer';
+            card.className = 'bg-white border border-gray-200 rounded-lg p-4 hover:shadow-md transition-all duration-200 cursor-pointer hover:border-sky-500';
             card.dataset.collectionId = collection.id ?? collection._id ?? '';
             card.dataset.collectionName = collection.displayName ?? collection.name ?? '';
             card.dataset.collectionSlug = collection.slug ?? '';
+            
+            // Add click event listener to the card
+            card.addEventListener('click', function() {
+                const collectionId = this.dataset.collectionId;
+                if (!collectionId) return;
+                
+                selectedCollection = {
+                    id: collectionId,
+                    displayName: this.dataset.collectionName || 'Selected Collection',
+                    slug: this.dataset.collectionSlug || '',
+                };
+                selectedCollectionFields = [];
+                draftFieldValues = {};
+                rawAiContent = '';
+                lastKeyword = '';
+                
+                // Highlight selected collection
+                document.querySelectorAll('#collectionsListContainer .border-sky-500').forEach(el => {
+                    el.classList.remove('border-sky-500', 'border-2');
+                    el.classList.add('border-gray-200');
+                });
+                this.classList.add('border-sky-500', 'border-2');
+                this.classList.remove('border-gray-200');
+                
+                resetFieldsUI('Loading fields');
+                resetBlogGenerator('Loading collection details');
+                resetItemsUI('Loading items');
+                
+                fetchCollectionFields(collectionId);
+            });
+            
             card.innerHTML = `
                 <div class="flex items-start justify-between mb-3">
                     <div class="flex-1 min-w-0">

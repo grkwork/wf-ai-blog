@@ -5,7 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Homecare Protect - AI Blog Generator Dashboard</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         .gradient-bg {
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
@@ -47,23 +46,7 @@
     <!-- Main Content -->
     <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <!-- Stats Overview -->
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-            <!-- Total Blogs Card -->
-            <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6 card-hover">
-                <div class="flex items-center justify-between">
-                    <div>
-                        <p class="text-sm font-medium text-gray-600">Total Blogs</p>
-                        <p class="text-3xl font-bold text-gray-900" id="totalBlogs">0</p>
-                        <p class="text-sm text-green-600 mt-1">+12% from last month</p>
-                    </div>
-                    <div class="bg-blue-100 p-3 rounded-lg">
-                        <svg class="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
-                        </svg>
-                    </div>
-                </div>
-            </div>
-
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
             <!-- Collections Card -->
             <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6 card-hover">
                 <div class="flex items-center justify-between">
@@ -95,42 +78,8 @@
                     </div>
                 </div>
             </div>
-
-            <!-- AI Generations Card -->
-            <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6 card-hover">
-                <div class="flex items-center justify-between">
-                    <div>
-                        <p class="text-sm font-medium text-gray-600">AI Generations</p>
-                        <p class="text-3xl font-bold text-gray-900" id="totalGenerations">0</p>
-                        <p class="text-sm text-orange-600 mt-1">This month</p>
-                    </div>
-                    <div class="bg-orange-100 p-3 rounded-lg">
-                        <svg class="w-6 h-6 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"></path>
-                        </svg>
-                    </div>
-                </div>
-            </div>
         </div>
 
-        <!-- Charts Section -->
-        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-            <!-- Blog Generation Chart -->
-            <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-                <h3 class="text-lg font-semibold text-gray-900 mb-4">Blog Generation Trend</h3>
-                <div class="h-64">
-                    <canvas id="blogChart"></canvas>
-                </div>
-            </div>
-
-            <!-- Collection Usage Chart -->
-            <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-                <h3 class="text-lg font-semibold text-gray-900 mb-4">Collection Usage</h3>
-                <div class="h-64">
-                    <canvas id="collectionChart"></canvas>
-                </div>
-            </div>
-        </div>
 
         <!-- Main Application Section -->
         <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-8">
@@ -187,74 +136,8 @@
         // Initialize dashboard stats
         function initializeDashboard() {
             // Initialize stats
-            document.getElementById('totalBlogs').textContent = localStorage.getItem('totalBlogs') || '0';
             document.getElementById('totalCollections').textContent = localStorage.getItem('totalCollections') || '0';
             document.getElementById('totalSites').textContent = localStorage.getItem('totalSites') || '0';
-            document.getElementById('totalGenerations').textContent = localStorage.getItem('totalGenerations') || '0';
-
-            // Initialize charts
-            initializeCharts();
-        }
-
-        // Initialize charts
-        function initializeCharts() {
-            // Blog Generation Chart
-            const blogCtx = document.getElementById('blogChart').getContext('2d');
-            new Chart(blogCtx, {
-                type: 'line',
-                data: {
-                    labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'],
-                    datasets: [{
-                        label: 'Blogs Generated',
-                        data: [12, 19, 3, 5, 2, 3],
-                        borderColor: 'rgb(59, 130, 246)',
-                        backgroundColor: 'rgba(59, 130, 246, 0.1)',
-                        tension: 0.4,
-                        fill: true
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {
-                        legend: {
-                            display: false
-                        }
-                    },
-                    scales: {
-                        y: {
-                            beginAtZero: true
-                        }
-                    }
-                }
-            });
-
-            // Collection Usage Chart
-            const collectionCtx = document.getElementById('collectionChart').getContext('2d');
-            new Chart(collectionCtx, {
-                type: 'doughnut',
-                data: {
-                    labels: ['Blog Posts', 'Categories', 'Authors', 'Tags'],
-                    datasets: [{
-                        data: [45, 25, 20, 10],
-                        backgroundColor: [
-                            'rgb(59, 130, 246)',
-                            'rgb(16, 185, 129)',
-                            'rgb(245, 158, 11)',
-                            'rgb(239, 68, 68)'
-                        ]
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {
-                        legend: {
-                            position: 'bottom'
-                        }
-                    }
-                }
-            });
         }
 
         // Logout functionality
