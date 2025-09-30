@@ -322,11 +322,16 @@ function buildBlogPrompt(string $keyword, array $fields): string
         $displayName = $field['displayName'] ?? $slug;
         $type = strtolower($field['type'] ?? 'unknown');
         $required = ($field['required'] ?? false) ? 'Required' : 'Optional';
+        
+        // Skip reference fields - they will be pre-populated by user selection
+        if ($type === 'reference') {
+            continue;
+        }
 
         $instruction = match ($type) {
             'plaintext' => 'Provide concise text.',
             'slug' => 'Generate a lowercase, hyphen-separated URL slug based on the "name" field.',
-            'richtext' => 'Return rich, well-structured HTML. Include headings (h2, h3), paragraphs (p), lists (ul, ol), and embed at least one relevant, royalty-free image using an <img> tag with a direct HTTPS URL in the src attribute.',
+            'richtext' => 'Return rich, well-structured HTML. Include headings (h2, h3), paragraphs (p), lists (ul, ol). Do not include any images.',
             'image' => 'Return a direct HTTPS URL to a relevant, high-quality, royalty-free image from Pexels, Pixabay, or Wikimedia Commons. Ensure the URL is accessible and returns a valid image.',
             'switch', 'boolean' => 'Return true or false.',
             'reference' => 'Return a related item identifier as a string.',

@@ -66,6 +66,14 @@ document.addEventListener('DOMContentLoaded', () => {
         await fetchSites();
     });
 
+    // Cache clear button
+    const clearCacheBtn = document.getElementById('clearCacheBtn');
+    if (clearCacheBtn) {
+        clearCacheBtn.addEventListener('click', () => {
+            clearCache();
+        });
+    }
+
     sitesListContainer.addEventListener('click', (event) => {
         const button = event.target.closest('button[data-site-id]');
         if (!button) {
@@ -347,7 +355,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 </div>
                 <div class="flex items-center gap-3">
                     <span class="hidden sm:inline text-xs text-gray-400">${escapeHtml(site.id ?? site._id ?? '')}</span>
-                    <button class="text-sm bg-green-500 text-white py-2 px-4 rounded-md hover:bg-green-600" data-site-id="${escapeHtml(site.id ?? site._id ?? '')}">
+                    <button class="text-sm bg-black text-white py-2 px-4 rounded-md hover:bg-gray-800" data-site-id="${escapeHtml(site.id ?? site._id ?? '')}">
                         Select
                     </button>
                 </div>
@@ -380,7 +388,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     <span class="font-medium text-gray-800">${escapeHtml(collection.displayName ?? collection.name ?? 'Unnamed Collection')}</span>
                     <span class="text-xs text-gray-500">Slug: ${escapeHtml(collection.slug ?? 'n/a')}</span>
                 </div>
-                <span class="text-xs text-blue-600">View fields →</span>
+                <span class="text-xs text-sky-600">View fields</span>
             `;
             list.appendChild(listItem);
         });
@@ -491,7 +499,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         ${unsupportedRequired.length > 0 ? `<p class="mt-2 text-amber-600">Heads up: these required fields must be completed manually after draft creation — ${unsupportedRequired.map((field) => escapeHtml(field.displayName ?? field.slug ?? 'Field')).join(', ')}.</p>` : ''}
                     </div>
                     <div class="flex items-center gap-3">
-                        <button type="submit" class="inline-flex items-center justify-center rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2">Generate draft</button>
+                        <button type="submit" class="inline-flex items-center justify-center rounded-md bg-black px-4 py-2 text-sm font-medium text-white hover:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-sky-500 focus:ring-offset-2">Generate draft</button>
                         <button type="button" id="blogClearButton" class="inline-flex items-center justify-center rounded-md border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">Clear</button>
                     </div>
                 </form>
@@ -551,6 +559,28 @@ document.addEventListener('DOMContentLoaded', () => {
                 displaySpan.textContent = `${selectedName} (${newId})`;
             }
         }
+    }
+
+    function clearCache() {
+        // Clear browser cache
+        if ('caches' in window) {
+            caches.keys().then(function(names) {
+                for (let name of names) {
+                    caches.delete(name);
+                }
+            });
+        }
+        
+        // Clear localStorage
+        localStorage.clear();
+        
+        // Clear sessionStorage
+        sessionStorage.clear();
+        
+        // Force reload with cache busting
+        const url = new URL(window.location);
+        url.searchParams.set('_t', Date.now());
+        window.location.href = url.toString();
     }
 
     function initializeReferenceSelections(editableFields) {
@@ -743,7 +773,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     ${editableFields.map((field) => renderFieldEditor(field)).join('')}
                 </div>
                 <div class="mt-5 flex flex-wrap items-center gap-3">
-                    <button type="button" id="createDraftButton" class="inline-flex items-center justify-center rounded-md bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2">Create Webflow draft</button>
+                    <button type="button" id="createDraftButton" class="inline-flex items-center justify-center rounded-md bg-black px-4 py-2 text-sm font-medium text-white hover:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-sky-500 focus:ring-offset-2">Create Webflow draft</button>
                     <button type="button" id="resetDraftButton" class="inline-flex items-center justify-center rounded-md border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">Reset fields</button>
                 </div>
                 <details class="mt-4">
