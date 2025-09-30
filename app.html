@@ -31,6 +31,17 @@
                 </div>
                 <div class="flex items-center space-x-4">
                     <button 
+                        id="themeToggle"
+                        class="bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 px-4 py-2 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600 transition duration-200 flex items-center space-x-2">
+                        <svg id="sunIcon" class="w-4 h-4 hidden dark:block" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"></path>
+                        </svg>
+                        <svg id="moonIcon" class="w-4 h-4 block dark:hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"></path>
+                        </svg>
+                        <span id="themeText">Dark</span>
+                    </button>
+                    <button 
                         id="logoutBtn"
                         class="bg-gray-600 text-white px-4 py-2 rounded-lg hover:bg-gray-700 transition duration-200 flex items-center space-x-2">
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -44,19 +55,19 @@
     </header>
 
     <!-- Main Content -->
-    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 dark:bg-gray-900">
         <!-- Stats Overview -->
         <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
             <!-- Collections Card -->
-            <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6 card-hover">
+            <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6 card-hover">
                 <div class="flex items-center justify-between">
                     <div>
-                        <p class="text-sm font-medium text-gray-600">Collections</p>
-                        <p class="text-3xl font-bold text-gray-900" id="totalCollections">0</p>
-                        <p class="text-sm text-blue-600 mt-1">Active collections</p>
+                        <p class="text-sm font-medium text-gray-600 dark:text-gray-400">Collections</p>
+                        <p class="text-3xl font-bold text-gray-900 dark:text-white" id="totalCollections">0</p>
+                        <p class="text-sm text-blue-600 dark:text-blue-400 mt-1">Active collections</p>
                     </div>
-                    <div class="bg-green-100 p-3 rounded-lg">
-                        <svg class="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <div class="bg-green-100 dark:bg-green-900 p-3 rounded-lg">
+                        <svg class="w-6 h-6 text-green-600 dark:text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path>
                         </svg>
                     </div>
@@ -64,15 +75,15 @@
             </div>
 
             <!-- Sites Card -->
-            <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6 card-hover">
+            <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6 card-hover">
                 <div class="flex items-center justify-between">
                     <div>
-                        <p class="text-sm font-medium text-gray-600">Webflow Sites</p>
-                        <p class="text-3xl font-bold text-gray-900" id="totalSites">0</p>
-                        <p class="text-sm text-purple-600 mt-1">Connected sites</p>
+                        <p class="text-sm font-medium text-gray-600 dark:text-gray-400">Webflow Sites</p>
+                        <p class="text-3xl font-bold text-gray-900 dark:text-white" id="totalSites">0</p>
+                        <p class="text-sm text-purple-600 dark:text-purple-400 mt-1">Connected sites</p>
                     </div>
-                    <div class="bg-purple-100 p-3 rounded-lg">
-                        <svg class="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <div class="bg-purple-100 dark:bg-purple-900 p-3 rounded-lg">
+                        <svg class="w-6 h-6 text-purple-600 dark:text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9v-9m0-9v9"></path>
                         </svg>
                     </div>
@@ -82,9 +93,9 @@
 
 
         <!-- Main Application Section -->
-        <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-8">
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-8">
             <div class="flex items-center justify-between mb-6">
-                <h2 class="text-2xl font-bold text-gray-900">Blog Generator</h2>
+                <h2 class="text-2xl font-bold text-gray-900 dark:text-white">Blog Generator</h2>
                 <div class="flex items-center space-x-3">
                     <button 
                         type="button" 
@@ -140,6 +151,50 @@
             document.getElementById('totalSites').textContent = localStorage.getItem('totalSites') || '0';
         }
 
+        // Theme toggle functionality
+        function initializeTheme() {
+            const themeToggle = document.getElementById('themeToggle');
+            const sunIcon = document.getElementById('sunIcon');
+            const moonIcon = document.getElementById('moonIcon');
+            const themeText = document.getElementById('themeText');
+            
+            // Check for saved theme preference or default to light mode
+            const currentTheme = localStorage.getItem('theme') || 'light';
+            document.documentElement.classList.toggle('dark', currentTheme === 'dark');
+            
+            // Update button text and icons
+            updateThemeButton(currentTheme);
+            
+            themeToggle.addEventListener('click', function() {
+                const isDark = document.documentElement.classList.contains('dark');
+                const newTheme = isDark ? 'light' : 'dark';
+                
+                document.documentElement.classList.toggle('dark');
+                localStorage.setItem('theme', newTheme);
+                updateThemeButton(newTheme);
+            });
+        }
+        
+        function updateThemeButton(theme) {
+            const sunIcon = document.getElementById('sunIcon');
+            const moonIcon = document.getElementById('moonIcon');
+            const themeText = document.getElementById('themeText');
+            
+            if (theme === 'dark') {
+                sunIcon.classList.remove('hidden');
+                sunIcon.classList.add('block');
+                moonIcon.classList.remove('block');
+                moonIcon.classList.add('hidden');
+                themeText.textContent = 'Light';
+            } else {
+                sunIcon.classList.remove('block');
+                sunIcon.classList.add('hidden');
+                moonIcon.classList.remove('hidden');
+                moonIcon.classList.add('block');
+                themeText.textContent = 'Dark';
+            }
+        }
+
         // Logout functionality
         document.getElementById('logoutBtn').addEventListener('click', function() {
             sessionStorage.removeItem('authenticated');
@@ -147,7 +202,10 @@
         });
 
         // Initialize dashboard on load
-        document.addEventListener('DOMContentLoaded', initializeDashboard);
+        document.addEventListener('DOMContentLoaded', function() {
+            initializeDashboard();
+            initializeTheme();
+        });
     </script>
 
     <script src="https://lightslategray-spoonbill-600904.hostingersite.com/js/main.js"></script>

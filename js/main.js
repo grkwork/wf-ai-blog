@@ -408,8 +408,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path>
                     </svg>
-                    <h3 class="mt-2 text-sm font-medium text-gray-900">No collections found</h3>
-                    <p class="mt-1 text-sm text-gray-500">No collections found for this site.</p>
+                    <h3 class="mt-2 text-sm font-medium text-gray-900 dark:text-white">No collections found</h3>
+                    <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">No collections found for this site.</p>
                 </div>
             `;
             return;
@@ -423,7 +423,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         collections.forEach((collection) => {
             const card = document.createElement('div');
-            card.className = 'bg-white border border-gray-200 rounded-lg p-4 hover:shadow-md transition-all duration-200 cursor-pointer hover:border-sky-500';
+            card.className = 'bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4 hover:shadow-md transition-all duration-200 cursor-pointer hover:border-sky-500';
             card.dataset.collectionId = collection.id ?? collection._id ?? '';
             card.dataset.collectionName = collection.displayName ?? collection.name ?? '';
             card.dataset.collectionSlug = collection.slug ?? '';
@@ -446,23 +446,24 @@ document.addEventListener('DOMContentLoaded', () => {
                 // Highlight selected collection
                 document.querySelectorAll('#collectionsListContainer .border-sky-500').forEach(el => {
                     el.classList.remove('border-sky-500', 'border-2');
-                    el.classList.add('border-gray-200');
+                    el.classList.add('border-gray-200', 'dark:border-gray-700');
                 });
                 this.classList.add('border-sky-500', 'border-2');
-                this.classList.remove('border-gray-200');
+                this.classList.remove('border-gray-200', 'dark:border-gray-700');
                 
                 resetFieldsUI('Loading fields');
                 resetBlogGenerator('Loading collection details');
                 resetItemsUI('Loading items');
                 
                 fetchCollectionFields(collectionId);
+                fetchCollectionItems(collectionId);
             });
             
             card.innerHTML = `
                 <div class="flex items-start justify-between mb-3">
                     <div class="flex-1 min-w-0">
-                        <h3 class="text-lg font-semibold text-gray-900 truncate">${escapeHtml(collection.displayName ?? collection.name ?? 'Unnamed Collection')}</h3>
-                        <p class="text-sm text-gray-500 mt-1">Slug: ${escapeHtml(collection.slug ?? 'n/a')}</p>
+                        <h3 class="text-lg font-semibold text-gray-900 dark:text-white truncate">${escapeHtml(collection.displayName ?? collection.name ?? 'Unnamed Collection')}</h3>
+                        <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">Slug: ${escapeHtml(collection.slug ?? 'n/a')}</p>
                     </div>
                     <div class="ml-3 flex-shrink-0">
                         <svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -479,6 +480,77 @@ document.addEventListener('DOMContentLoaded', () => {
         });
 
         collectionsListContainer.appendChild(grid);
+    }
+
+    async function fetchCollectionItems(collectionId) {
+        if (!collectionId) return;
+        
+        try {
+            const data = await callApi({
+                action: 'list-collection-items',
+                collectionId: collectionId,
+            });
+            displayItems(data.items ?? data);
+        } catch (error) {
+            console.error('Error fetching collection items:', error);
+            itemsListContainer.innerHTML = `
+                <div class="text-center py-8">
+                    <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z"></path>
+                    </svg>
+                    <h3 class="mt-2 text-sm font-medium text-gray-900 dark:text-white">Error loading items</h3>
+                    <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">${escapeHtml(error.message)}</p>
+                </div>
+            `;
+        }
+    }
+
+    function displayItems(items) {
+        itemsListContainer.innerHTML = '';
+
+        if (!Array.isArray(items) || items.length === 0) {
+            itemsListContainer.innerHTML = `
+                <div class="text-center py-8">
+                    <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                    </svg>
+                    <h3 class="mt-2 text-sm font-medium text-gray-900 dark:text-white">No items found</h3>
+                    <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">No items found in this collection.</p>
+                </div>
+            `;
+            return;
+        }
+
+        const grid = document.createElement('div');
+        grid.className = 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4';
+
+        items.forEach((item) => {
+            const card = document.createElement('div');
+            card.className = 'bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4 hover:shadow-md transition-all duration-200';
+            
+            // Extract name and slug from item data
+            const name = item.name || item.displayName || item.title || item.fieldData?.name || item.fieldData?.displayName || item.fieldData?.title || 'Untitled Item';
+            const slug = item.slug || item.fieldData?.slug || 'no-slug';
+            
+            card.innerHTML = `
+                <div class="flex items-start justify-between mb-3">
+                    <div class="flex-1 min-w-0">
+                        <h3 class="text-lg font-semibold text-gray-900 dark:text-white truncate">${escapeHtml(name)}</h3>
+                        <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">Slug: ${escapeHtml(slug)}</p>
+                    </div>
+                    <div class="ml-3 flex-shrink-0">
+                        <div class="w-2 h-2 bg-green-400 rounded-full"></div>
+                    </div>
+                </div>
+                <div class="flex items-center justify-between">
+                    <span class="text-xs text-gray-400 font-mono">${escapeHtml(item.id ?? item._id ?? '').substring(0, 8)}...</span>
+                    <span class="text-sm text-gray-500 dark:text-gray-400">Collection Item</span>
+                </div>
+            `;
+            grid.appendChild(card);
+        });
+
+        itemsListContainer.appendChild(grid);
     }
 
     function displayFields(fields) {
