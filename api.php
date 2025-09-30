@@ -326,7 +326,7 @@ function buildBlogPrompt(string $keyword, array $fields): string
         $required = ($field['required'] ?? false) ? 'Required' : 'Optional';
         
         // Skip reference fields - they will be pre-populated by user selection
-        if ($type === 'reference') {
+        if ($type === 'reference' || $type === 'multireference') {
             continue;
         }
 

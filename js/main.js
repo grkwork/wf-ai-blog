@@ -524,13 +524,11 @@ document.addEventListener('DOMContentLoaded', () => {
             
             if (userSelectedId) {
                 if (isMultiReference && Array.isArray(userSelectedId)) {
-                    // Override AI-generated value with user-selected multi-reference IDs
+                    // Override AI-generated value with user-selected multi-reference IDs (comma-separated)
                     draftFieldValues[slug] = userSelectedId.join(',');
-                    console.log(`Preserved user multi-selection for ${slug}: ${userSelectedId.join(', ')}`);
                 } else if (!isMultiReference) {
                     // Override AI-generated value with user-selected reference ID
                     draftFieldValues[slug] = userSelectedId;
-                    console.log(`Preserved user selection for ${slug}: ${userSelectedId}`);
                 }
             }
         });
@@ -584,6 +582,48 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    function updateImagePreview(fieldSlug, imageUrl) {
+        // Find existing preview or create new one
+        const fieldContainer = document.querySelector(`#draft-field-${fieldSlug}`).closest('.flex-col');
+        let previewContainer = fieldContainer.querySelector('.image-preview');
+        
+        if (!previewContainer) {
+            previewContainer = document.createElement('div');
+            previewContainer.className = 'image-preview mt-2';
+            fieldContainer.appendChild(previewContainer);
+        }
+
+        if (imageUrl && imageUrl.startsWith('http')) {
+            previewContainer.innerHTML = `
+                <img src="${escapeHtml(imageUrl)}" alt="Preview" class="max-w-xs h-32 object-cover rounded-md border" onerror="this.style.display='none'" />
+            `;
+        } else {
+            previewContainer.innerHTML = '';
+        }
+    }
+
+    async function generateImageFromKeywords(keywords) {
+        // This is a placeholder function - you would implement actual image generation
+        // For now, we'll use a simple approach with Unsplash API
+        try {
+            const encodedKeywords = encodeURIComponent(keywords);
+            const unsplashUrl = `https://source.unsplash.com/400x300/?${encodedKeywords}`;
+            
+            // Test if the image loads
+            return new Promise((resolve, reject) => {
+                const img = new Image();
+                img.onload = () => resolve(unsplashUrl);
+                img.onerror = () => {
+                    // Fallback to a generic image
+                    resolve(`https://source.unsplash.com/400x300/?business,office`);
+                };
+                img.src = unsplashUrl;
+            });
+        } catch (error) {
+            throw new Error('Failed to generate image from keywords');
+        }
+    }
+
     function clearCache() {
         // Clear browser cache
         if ('caches' in window) {
@@ -620,7 +660,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 // Set initial selection if not already set
                 if (!referenceSelection[slug]) {
                     if (isMultiReference) {
-                        // For MultiReference, start with first item selected
+                        // For MultiReference, start with first item selected (comma-separated)
                         referenceSelection[slug] = [firstItemId];
                         draftFieldValues[slug] = firstItemId;
                     } else {
@@ -882,8 +922,23 @@ document.addEventListener('DOMContentLoaded', () => {
             return `
                 <div class="flex flex-col gap-2">
                     <label class="text-sm font-medium text-gray-700" for="draft-field-${escapeHtml(slug)}">${escapeHtml(label)} ${required ? '<span class="text-rose-600">*</span>' : ''}</label>
-                    <input id="draft-field-${escapeHtml(slug)}" data-draft-field="${escapeHtml(slug)}" type="url" value="${escapeHtml(value)}" placeholder="https://example.com/image.jpg" class="rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500" />
-                    <p class="text-xs text-gray-400">Enter a full image URL. Slug: ${escapeHtml(slug)}</p>
+                    <div class="flex gap-2">
+                        <input id="draft-field-${escapeHtml(slug)}" data-draft-field="${escapeHtml(slug)}" type="url" value="${escapeHtml(value)}" placeholder="https://example.com/image.jpg" class="flex-1 rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+                        <button type="button" id="replace-image-${escapeHtml(slug)}" class="bg-sky-600 text-white px-3 py-2 rounded-md hover:bg-sky-700 text-sm">Replace</button>
+                    </div>
+                    ${value && value.startsWith('http') ? `
+                        <div class="mt-2">
+                            <img src="${escapeHtml(value)}" alt="Preview" class="max-w-xs h-32 object-cover rounded-md border" onerror="this.style.display='none'" />
+                        </div>
+                    ` : ''}
+                    <div id="image-replacement-${escapeHtml(slug)}" class="hidden mt-2">
+                        <input type="text" id="image-keywords-${escapeHtml(slug)}" placeholder="Enter keywords for new image (e.g., 'business insurance office')" class="w-full rounded-md border border-gray-300 px-3 py-2 text-sm" />
+                        <div class="flex gap-2 mt-2">
+                            <button type="button" id="generate-image-${escapeHtml(slug)}" class="bg-black text-white px-3 py-1 rounded text-sm hover:bg-gray-800">Generate</button>
+                            <button type="button" id="cancel-replace-${escapeHtml(slug)}" class="bg-gray-500 text-white px-3 py-1 rounded text-sm hover:bg-gray-600">Cancel</button>
+                        </div>
+                    </div>
+                    <p class="text-xs text-gray-400">Enter a full image URL or use keywords to generate a new image. Slug: ${escapeHtml(slug)}</p>
                 </div>
             `;
         }
@@ -973,8 +1028,67 @@ document.addEventListener('DOMContentLoaded', () => {
         } else {
             input.addEventListener('input', (event) => {
                 draftFieldValues[fieldSlug] = event.target.value;
+                // Update image preview if it's an image field
+                if (field && IMAGE_FIELD_TYPES.has(field.type ?? '')) {
+                    updateImagePreview(fieldSlug, event.target.value);
+                }
             });
         }
+        });
+
+        // Add image replacement event handlers
+        container.querySelectorAll('[id^="replace-image-"]').forEach((button) => {
+            const fieldSlug = button.id.replace('replace-image-', '');
+            button.addEventListener('click', () => {
+                const replacementDiv = document.getElementById(`image-replacement-${fieldSlug}`);
+                if (replacementDiv) {
+                    replacementDiv.classList.remove('hidden');
+                }
+            });
+        });
+
+        container.querySelectorAll('[id^="cancel-replace-"]').forEach((button) => {
+            const fieldSlug = button.id.replace('cancel-replace-', '');
+            button.addEventListener('click', () => {
+                const replacementDiv = document.getElementById(`image-replacement-${fieldSlug}`);
+                if (replacementDiv) {
+                    replacementDiv.classList.add('hidden');
+                }
+            });
+        });
+
+        container.querySelectorAll('[id^="generate-image-"]').forEach((button) => {
+            const fieldSlug = button.id.replace('generate-image-', '');
+            button.addEventListener('click', async () => {
+                const keywordsInput = document.getElementById(`image-keywords-${fieldSlug}`);
+                const keywords = keywordsInput?.value?.trim();
+                
+                if (!keywords) {
+                    alert('Please enter keywords for the image');
+                    return;
+                }
+
+                try {
+                    const newImageUrl = await generateImageFromKeywords(keywords);
+                    if (newImageUrl) {
+                        const imageInput = document.getElementById(`draft-field-${fieldSlug}`);
+                        if (imageInput) {
+                            imageInput.value = newImageUrl;
+                            draftFieldValues[fieldSlug] = newImageUrl;
+                            updateImagePreview(fieldSlug, newImageUrl);
+                        }
+                        
+                        const replacementDiv = document.getElementById(`image-replacement-${fieldSlug}`);
+                        if (replacementDiv) {
+                            replacementDiv.classList.add('hidden');
+                        }
+                        
+                        keywordsInput.value = '';
+                    }
+                } catch (error) {
+                    alert('Failed to generate image: ' + error.message);
+                }
+            });
         });
 
 
