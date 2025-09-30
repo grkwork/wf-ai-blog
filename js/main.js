@@ -594,33 +594,49 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         if (imageUrl && imageUrl.startsWith('http')) {
+            // Create low-quality preview for fast loading
+            const lowQualityUrl = createLowQualityImageUrl(imageUrl);
+            
             previewContainer.innerHTML = `
-                <img src="${escapeHtml(imageUrl)}" alt="Preview" class="max-w-xs h-32 object-cover rounded-md border" onerror="this.style.display='none'" />
+                <div class="relative">
+                    <img src="${escapeHtml(lowQualityUrl)}" alt="Preview" class="max-w-xs h-32 object-cover rounded-md border" onerror="this.style.display='none'" />
+                    <div class="absolute top-1 right-1 bg-black bg-opacity-50 text-white text-xs px-1 rounded">Preview</div>
+                </div>
+                <p class="text-xs text-gray-500 mt-1">Low-quality preview for fast loading</p>
             `;
         } else {
             previewContainer.innerHTML = '';
         }
     }
 
+    function createLowQualityImageUrl(originalUrl) {
+        // For Unsplash images, we can create a low-quality version
+        if (originalUrl.includes('unsplash.com')) {
+            return originalUrl.replace(/w=\d+/, 'w=200').replace(/h=\d+/, 'h=150');
+        }
+        
+        // For other images, we'll use the original URL but with a smaller size parameter
+        // This is a simple approach - in production you might want to use a proper image resizing service
+        return originalUrl;
+    }
+
     async function generateImageFromKeywords(keywords) {
-        // This is a placeholder function - you would implement actual image generation
-        // For now, we'll use a simple approach with Unsplash API
         try {
-            const encodedKeywords = encodeURIComponent(keywords);
-            const unsplashUrl = `https://source.unsplash.com/400x300/?${encodedKeywords}`;
-            
-            // Test if the image loads
-            return new Promise((resolve, reject) => {
-                const img = new Image();
-                img.onload = () => resolve(unsplashUrl);
-                img.onerror = () => {
-                    // Fallback to a generic image
-                    resolve(`https://source.unsplash.com/400x300/?business,office`);
-                };
-                img.src = unsplashUrl;
+            const response = await callApi({
+                action: 'generate-image',
+                keywords: keywords
             });
+            
+            if (response.imageUrl) {
+                return response.imageUrl;
+            } else {
+                throw new Error('No image URL returned from API');
+            }
         } catch (error) {
-            throw new Error('Failed to generate image from keywords');
+            console.error('AI image generation failed:', error);
+            // Fallback to Unsplash
+            const encodedKeywords = encodeURIComponent(keywords);
+            return `https://source.unsplash.com/400x300/?${encodedKeywords}`;
         }
     }
 
@@ -928,7 +944,11 @@ document.addEventListener('DOMContentLoaded', () => {
                     </div>
                     ${value && value.startsWith('http') ? `
                         <div class="mt-2">
-                            <img src="${escapeHtml(value)}" alt="Preview" class="max-w-xs h-32 object-cover rounded-md border" onerror="this.style.display='none'" />
+                            <div class="relative">
+                                <img src="${escapeHtml(createLowQualityImageUrl(value))}" alt="Preview" class="max-w-xs h-32 object-cover rounded-md border" onerror="this.style.display='none'" />
+                                <div class="absolute top-1 right-1 bg-black bg-opacity-50 text-white text-xs px-1 rounded">Preview</div>
+                            </div>
+                            <p class="text-xs text-gray-500 mt-1">Low-quality preview for fast loading</p>
                         </div>
                     ` : ''}
                     <div id="image-replacement-${escapeHtml(slug)}" class="hidden mt-2">
@@ -1068,6 +1088,11 @@ document.addEventListener('DOMContentLoaded', () => {
                     return;
                 }
 
+                // Show loading state
+                const originalText = button.textContent;
+                button.textContent = 'Generating...';
+                button.disabled = true;
+
                 try {
                     const newImageUrl = await generateImageFromKeywords(keywords);
                     if (newImageUrl) {
@@ -1087,6 +1112,10 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
                 } catch (error) {
                     alert('Failed to generate image: ' + error.message);
+                } finally {
+                    // Reset button state
+                    button.textContent = originalText;
+                    button.disabled = false;
                 }
             });
         });
