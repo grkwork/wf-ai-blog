@@ -528,30 +528,108 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
+        // Add section header
+        const sectionHeader = document.createElement('div');
+        sectionHeader.className = 'mb-6';
+        sectionHeader.innerHTML = `
+            <div class="flex items-center justify-between">
+                <h3 class="text-lg font-semibold text-gray-900">Collection Items</h3>
+                <span class="text-sm text-gray-500">${items.length} item${items.length !== 1 ? 's' : ''}</span>
+            </div>
+        `;
+        itemsListContainer.appendChild(sectionHeader);
+
         const grid = document.createElement('div');
-        grid.className = 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4';
+        grid.className = 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6';
 
         items.forEach((item) => {
             const card = document.createElement('div');
-            card.className = 'bg-white border border-gray-200 rounded-lg p-4 hover:shadow-md transition-all duration-200';
+            card.className = 'bg-white border border-gray-200 rounded-lg p-6 hover:shadow-lg transition-all duration-200 hover:border-gray-300';
             
-            // Extract name and slug from item data
+            // Extract item information
             const name = item.name || item.displayName || item.title || item.fieldData?.name || item.fieldData?.displayName || item.fieldData?.title || 'Untitled Item';
             const slug = item.slug || item.fieldData?.slug || 'no-slug';
+            const itemId = item.id || item._id || '';
+            
+            // Determine status
+            const isDraft = item.isDraft === true || item._draft === true;
+            const isArchived = item.isArchived === true || item._archived === true;
+            const isPublished = !isDraft && !isArchived;
+            
+            // Get creation/update dates
+            const createdAt = item.createdOn || item.createdAt || item.fieldData?.createdOn || item.fieldData?.createdAt;
+            const updatedAt = item.lastPublished || item.updatedOn || item.fieldData?.lastPublished || item.fieldData?.updatedOn;
+            
+            // Format dates
+            const formatDate = (dateString) => {
+                if (!dateString) return 'Unknown';
+                try {
+                    return new Date(dateString).toLocaleDateString('en-US', {
+                        year: 'numeric',
+                        month: 'short',
+                        day: 'numeric'
+                    });
+                } catch {
+                    return 'Unknown';
+                }
+            };
+
+            // Status badge
+            let statusBadge = '';
+            let statusColor = '';
+            let statusText = '';
+            
+            if (isArchived) {
+                statusBadge = 'bg-gray-100 text-gray-800';
+                statusColor = 'bg-gray-400';
+                statusText = 'Archived';
+            } else if (isDraft) {
+                statusBadge = 'bg-yellow-100 text-yellow-800';
+                statusColor = 'bg-yellow-400';
+                statusText = 'Draft';
+            } else {
+                statusBadge = 'bg-green-100 text-green-800';
+                statusColor = 'bg-green-400';
+                statusText = 'Published';
+            }
             
             card.innerHTML = `
-                <div class="flex items-start justify-between mb-3">
+                <div class="flex items-start justify-between mb-4">
                     <div class="flex-1 min-w-0">
-                        <h3 class="text-lg font-semibold text-gray-900 truncate">${escapeHtml(name)}</h3>
-                        <p class="text-sm text-gray-500 mt-1">Slug: ${escapeHtml(slug)}</p>
+                        <h3 class="text-lg font-semibold text-gray-900 truncate mb-2">${escapeHtml(name)}</h3>
+                        <p class="text-sm text-gray-500 mb-1">Slug: ${escapeHtml(slug)}</p>
+                        <p class="text-xs text-gray-400 font-mono">ID: ${escapeHtml(itemId).substring(0, 12)}...</p>
                     </div>
                     <div class="ml-3 flex-shrink-0">
-                        <div class="w-2 h-2 bg-green-400 rounded-full"></div>
+                        <div class="flex items-center space-x-2">
+                            <div class="w-3 h-3 ${statusColor} rounded-full"></div>
+                            <span class="text-xs ${statusBadge} px-2 py-1 rounded-full font-medium">${statusText}</span>
+                        </div>
                     </div>
                 </div>
-                <div class="flex items-center justify-between">
-                    <span class="text-xs text-gray-400 font-mono">${escapeHtml(item.id ?? item._id ?? '').substring(0, 8)}...</span>
-                    <span class="text-sm text-gray-500">Collection Item</span>
+                
+                <div class="space-y-2">
+                    <div class="flex items-center justify-between text-xs text-gray-500">
+                        <span>Created:</span>
+                        <span>${formatDate(createdAt)}</span>
+                    </div>
+                    ${updatedAt ? `
+                    <div class="flex items-center justify-between text-xs text-gray-500">
+                        <span>Updated:</span>
+                        <span>${formatDate(updatedAt)}</span>
+                    </div>
+                    ` : ''}
+                </div>
+                
+                <div class="mt-4 pt-3 border-t border-gray-100">
+                    <div class="flex items-center justify-between">
+                        <span class="text-xs text-gray-400">Collection Item</span>
+                        <div class="flex items-center space-x-1">
+                            <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+                            </svg>
+                        </div>
+                    </div>
                 </div>
             `;
             grid.appendChild(card);
