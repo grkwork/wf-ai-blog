@@ -51,7 +51,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const BOOLEAN_FIELD_TYPES = new Set(['Switch', 'Boolean']);
     const IMAGE_FIELD_TYPES = new Set(['Image']);
-    const REFERENCE_FIELD_TYPES = new Set(['Reference']);
+    const REFERENCE_FIELD_TYPES = new Set(['Reference', 'MultiReference']);
+    const MULTI_REFERENCE_FIELD_TYPES = new Set(['MultiReference']);
 
     let selectedSiteId = null;
     let selectedCollection = null;
@@ -518,11 +519,18 @@ document.addEventListener('DOMContentLoaded', () => {
         referenceFields.forEach((field) => {
             const slug = field.slug ?? '';
             const userSelectedId = referenceSelection[slug];
+            const isMultiReference = MULTI_REFERENCE_FIELD_TYPES.has(field.type ?? '');
             
             if (userSelectedId) {
-                // Override AI-generated value with user-selected reference ID
-                draftFieldValues[slug] = userSelectedId;
-                console.log(`Preserved user selection for ${slug}: ${userSelectedId}`);
+                if (isMultiReference && Array.isArray(userSelectedId)) {
+                    // Override AI-generated value with user-selected multi-reference IDs
+                    draftFieldValues[slug] = userSelectedId.join(',');
+                    console.log(`Preserved user multi-selection for ${slug}: ${userSelectedId.join(', ')}`);
+                } else if (!isMultiReference) {
+                    // Override AI-generated value with user-selected reference ID
+                    draftFieldValues[slug] = userSelectedId;
+                    console.log(`Preserved user selection for ${slug}: ${userSelectedId}`);
+                }
             }
         });
     }
@@ -558,6 +566,23 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    function updateMultiReferenceDisplay(slug, selectedIds) {
+        // Update the display for multi-reference fields
+        const draftFieldInput = document.querySelector(`#draft-field-${slug}`);
+        if (draftFieldInput) {
+            const displaySpan = draftFieldInput.parentElement.querySelector('span');
+            if (displaySpan) {
+                const items = referenceCollections[slug] ?? [];
+                const selectedNames = selectedIds.map(id => {
+                    const item = items.find(item => (item._id ?? item.id) === id);
+                    const name = item?.name ?? item?.displayName ?? item?.title ?? item?.fieldData?.name ?? item?.fieldData?.displayName ?? item?.fieldData?.title ?? id;
+                    return `${name} (${id})`;
+                });
+                displaySpan.textContent = selectedNames.join(', ');
+            }
+        }
+    }
+
     function clearCache() {
         // Clear browser cache
         if ('caches' in window) {
@@ -586,14 +611,22 @@ document.addEventListener('DOMContentLoaded', () => {
         referenceFields.forEach((field) => {
             const slug = field.slug ?? '';
             const items = referenceCollections[slug] ?? [];
+            const isMultiReference = MULTI_REFERENCE_FIELD_TYPES.has(field.type ?? '');
             
             if (items.length > 0) {
                 const firstItemId = items[0]?._id ?? items[0]?.id ?? '';
                 
                 // Set initial selection if not already set
                 if (!referenceSelection[slug]) {
-                    referenceSelection[slug] = firstItemId;
-                    draftFieldValues[slug] = firstItemId;
+                    if (isMultiReference) {
+                        // For MultiReference, start with first item selected
+                        referenceSelection[slug] = [firstItemId];
+                        draftFieldValues[slug] = firstItemId;
+                    } else {
+                        // For single Reference, start with first item selected
+                        referenceSelection[slug] = firstItemId;
+                        draftFieldValues[slug] = firstItemId;
+                    }
                 }
             }
         });
@@ -603,14 +636,19 @@ document.addEventListener('DOMContentLoaded', () => {
         const slug = field.slug ?? '';
         const label = field.displayName ?? field.name ?? slug;
         const items = referenceCollections[slug] ?? [];
-        const selected = referenceSelection[slug] ?? items[0]?._id ?? items[0]?.id ?? '';
-
+        const isMultiReference = MULTI_REFERENCE_FIELD_TYPES.has(field.type ?? '');
+        
+        // Handle multi-reference selections
+        const selected = isMultiReference 
+            ? (referenceSelection[slug] || [])
+            : (referenceSelection[slug] ?? items[0]?._id ?? items[0]?.id ?? '');
 
         if (items.length === 0) {
+            const fieldType = isMultiReference ? 'Multi-Reference' : 'Reference';
             return `
                 <div>
-                    <label class="block text-sm font-medium text-gray-700" for="reference-select-${escapeHtml(slug)}">${escapeHtml(label)} (Reference)</label>
-                    <select id="reference-select-${escapeHtml(slug)}" data-reference-slug="${escapeHtml(slug)}" class="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500" disabled>
+                    <label class="block text-sm font-medium text-gray-700" for="reference-select-${escapeHtml(slug)}">${escapeHtml(label)} (${fieldType})</label>
+                    <select id="reference-select-${escapeHtml(slug)}" data-reference-slug="${escapeHtml(slug)}" class="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-500" disabled>
                         <option>No items available</option>
                     </select>
                     <p class="text-xs text-red-500 mt-1">No reference items found for this field</p>
@@ -618,13 +656,31 @@ document.addEventListener('DOMContentLoaded', () => {
             `;
         }
 
+        const fieldType = isMultiReference ? 'Multi-Reference' : 'Reference';
+        
+        if (isMultiReference) {
+            return `
+                <div>
+                    <label class="block text-sm font-medium text-gray-700" for="reference-select-${escapeHtml(slug)}">${escapeHtml(label)} (${fieldType})</label>
+                    <select id="reference-select-${escapeHtml(slug)}" data-reference-slug="${escapeHtml(slug)}" class="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-500" multiple size="4">
+                        ${items.map((item) => {
+                            const id = item._id ?? item.id ?? '';
+                            const name = item.name ?? item.displayName ?? item.title ?? item.fieldData?.name ?? item.fieldData?.displayName ?? item.fieldData?.title ?? 'Untitled Item';
+                            const isSelected = Array.isArray(selected) && selected.includes(id);
+                            return `<option value="${escapeHtml(id)}" ${isSelected ? 'selected' : ''}>${escapeHtml(name)} (${escapeHtml(id)})</option>`;
+                        }).join('')}
+                    </select>
+                    <p class="text-xs text-gray-500 mt-1">Hold Ctrl/Cmd to select multiple items</p>
+                </div>
+            `;
+        }
+
         return `
             <div>
-                <label class="block text-sm font-medium text-gray-700" for="reference-select-${escapeHtml(slug)}">${escapeHtml(label)} (Reference)</label>
-                <select id="reference-select-${escapeHtml(slug)}" data-reference-slug="${escapeHtml(slug)}" class="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                <label class="block text-sm font-medium text-gray-700" for="reference-select-${escapeHtml(slug)}">${escapeHtml(label)} (${fieldType})</label>
+                <select id="reference-select-${escapeHtml(slug)}" data-reference-slug="${escapeHtml(slug)}" class="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-500">
                     ${items.map((item) => {
                         const id = item._id ?? item.id ?? '';
-                        // Try multiple possible name fields
                         const name = item.name ?? item.displayName ?? item.title ?? item.fieldData?.name ?? item.fieldData?.displayName ?? item.fieldData?.title ?? 'Untitled Item';
                         const isSelected = id === selected;
                         return `<option value="${escapeHtml(id)}" ${isSelected ? 'selected' : ''}>${escapeHtml(name)} (${escapeHtml(id)})</option>`;
@@ -646,18 +702,38 @@ document.addEventListener('DOMContentLoaded', () => {
         blogGeneratorContainer.querySelectorAll('[data-reference-slug]').forEach((select) => {
             select.addEventListener('change', (event) => {
                 const slug = event.target.dataset.referenceSlug;
-                const selectedId = event.target.value;
+                const isMultiSelect = event.target.multiple;
                 
-                // Update reference selection tracking
-                referenceSelection[slug] = selectedId;
-                
-                // Auto-populate the corresponding draft field
-                draftFieldValues[slug] = selectedId;
-                
-                // Update the draft field display if it exists
-                updateDraftFieldDisplay(slug, selectedId);
-                
-                console.log(`Reference field ${slug} updated to: ${selectedId}`);
+                if (isMultiSelect) {
+                    // Handle multi-select for MultiReference fields
+                    const selectedOptions = Array.from(event.target.selectedOptions);
+                    const selectedIds = selectedOptions.map(option => option.value);
+                    
+                    // Update reference selection tracking
+                    referenceSelection[slug] = selectedIds;
+                    
+                    // Auto-populate the corresponding draft field with comma-separated IDs
+                    draftFieldValues[slug] = selectedIds.join(',');
+                    
+                    // Update the draft field display if it exists
+                    updateMultiReferenceDisplay(slug, selectedIds);
+                    
+                    console.log(`Multi-reference field ${slug} updated to: ${selectedIds.join(', ')}`);
+                } else {
+                    // Handle single select for Reference fields
+                    const selectedId = event.target.value;
+                    
+                    // Update reference selection tracking
+                    referenceSelection[slug] = selectedId;
+                    
+                    // Auto-populate the corresponding draft field
+                    draftFieldValues[slug] = selectedId;
+                    
+                    // Update the draft field display if it exists
+                    updateDraftFieldDisplay(slug, selectedId);
+                    
+                    console.log(`Reference field ${slug} updated to: ${selectedId}`);
+                }
             });
         });
 
@@ -822,20 +898,44 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (REFERENCE_FIELD_TYPES.has(field.type ?? '')) {
             const items = referenceCollections[slug] ?? [];
-            const selectedId = draftFieldValues[slug] ?? referenceSelection[slug] ?? items[0]?._id ?? items[0]?.id ?? '';
-            const selectedItem = items.find(item => (item._id ?? item.id) === selectedId);
-            const selectedName = selectedItem?.name ?? selectedItem?.displayName ?? selectedItem?.title ?? selectedItem?.fieldData?.name ?? selectedItem?.fieldData?.displayName ?? selectedItem?.fieldData?.title ?? selectedId;
+            const isMultiReference = MULTI_REFERENCE_FIELD_TYPES.has(field.type ?? '');
+            
+            if (isMultiReference) {
+                // Handle MultiReference fields
+                const selectedIds = draftFieldValues[slug] ? draftFieldValues[slug].split(',') : (referenceSelection[slug] || []);
+                const selectedNames = selectedIds.map(id => {
+                    const item = items.find(item => (item._id ?? item.id) === id);
+                    const name = item?.name ?? item?.displayName ?? item?.title ?? item?.fieldData?.name ?? item?.fieldData?.displayName ?? item?.fieldData?.title ?? id;
+                    return `${name} (${id})`;
+                });
 
-            return `
-                <div class="flex flex-col gap-2">
-                    <label class="text-sm font-medium text-gray-700" for="draft-field-${escapeHtml(slug)}">${escapeHtml(label)} ${required ? '<span class="text-rose-600">*</span>' : ''}</label>
-                    <div class="flex items-center gap-2">
-                        <input id="draft-field-${escapeHtml(slug)}" data-draft-field="${escapeHtml(slug)}" type="text" value="${escapeHtml(selectedId)}" placeholder="Enter reference ID" class="flex-1 rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500" />
-                        <span class="text-sm text-gray-600 bg-gray-100 px-2 py-1 rounded">${escapeHtml(selectedName)} (${escapeHtml(selectedId)})</span>
+                return `
+                    <div class="flex flex-col gap-2">
+                        <label class="text-sm font-medium text-gray-700" for="draft-field-${escapeHtml(slug)}">${escapeHtml(label)} ${required ? '<span class="text-rose-600">*</span>' : ''}</label>
+                        <div class="flex items-center gap-2">
+                            <input id="draft-field-${escapeHtml(slug)}" data-draft-field="${escapeHtml(slug)}" type="text" value="${escapeHtml(selectedIds.join(','))}" placeholder="Enter reference IDs (comma-separated)" class="flex-1 rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+                            <span class="text-sm text-gray-600 bg-gray-100 px-2 py-1 rounded max-w-xs truncate">${escapeHtml(selectedNames.join(', '))}</span>
+                        </div>
+                        <p class="text-xs text-gray-400">Reference IDs: ${escapeHtml(selectedIds.join(', '))} (auto-populated from selection above, but you can edit it)</p>
                     </div>
-                    <p class="text-xs text-gray-400">Reference ID: ${escapeHtml(selectedId)} (auto-populated from selection above, but you can edit it)</p>
-                </div>
-            `;
+                `;
+            } else {
+                // Handle single Reference fields
+                const selectedId = draftFieldValues[slug] ?? referenceSelection[slug] ?? items[0]?._id ?? items[0]?.id ?? '';
+                const selectedItem = items.find(item => (item._id ?? item.id) === selectedId);
+                const selectedName = selectedItem?.name ?? selectedItem?.displayName ?? selectedItem?.title ?? selectedItem?.fieldData?.name ?? selectedItem?.fieldData?.displayName ?? selectedItem?.fieldData?.title ?? selectedId;
+
+                return `
+                    <div class="flex flex-col gap-2">
+                        <label class="text-sm font-medium text-gray-700" for="draft-field-${escapeHtml(slug)}">${escapeHtml(label)} ${required ? '<span class="text-rose-600">*</span>' : ''}</label>
+                        <div class="flex items-center gap-2">
+                            <input id="draft-field-${escapeHtml(slug)}" data-draft-field="${escapeHtml(slug)}" type="text" value="${escapeHtml(selectedId)}" placeholder="Enter reference ID" class="flex-1 rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+                            <span class="text-sm text-gray-600 bg-gray-100 px-2 py-1 rounded">${escapeHtml(selectedName)} (${escapeHtml(selectedId)})</span>
+                        </div>
+                        <p class="text-xs text-gray-400">Reference ID: ${escapeHtml(selectedId)} (auto-populated from selection above, but you can edit it)</p>
+                    </div>
+                `;
+            }
         }
 
         return `
