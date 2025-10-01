@@ -739,8 +739,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         <label for="blogModelSelect" class="block text-sm font-medium text-gray-700">AI provider & model</label>
                         <select id="blogModelSelect" class="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500">
                             <optgroup label="Google Gemini">
-                                <option value="gemini:gemini-2.5-flash" selected>Gemini 2.5 Flash (fast, versatile)</option>
-                                <option value="gemini:gemini-2.5-pro">Gemini 2.5 Pro (higher quality)</option>
+                                <option value="gemini:gemini-2.5-pro" selected>Gemini 2.5 Pro (higher quality)</option>
                             </optgroup>
                         </select>
                     </div>
@@ -1063,7 +1062,7 @@ document.addEventListener('DOMContentLoaded', () => {
             // Preserve user-selected reference values after AI processing
             preserveReferenceSelections(editableFields);
             
-            setBlogGeneratorStatus('Draft ready. Review, tweak and push to Webflow.', 'success');
+            setBlogGeneratorStatus('Draft ready!', 'success');
             renderDraftEditor(editableFields);
         } catch (error) {
             let errorMessage = error.message;
@@ -1102,7 +1101,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 <div class="flex items-start justify-between gap-4">
                     <div>
                         <h4 class="text-lg font-semibold text-gray-800">Draft fields</h4>
-                        <p class="text-sm text-gray-500">Review and edit before creating a Webflow draft.</p>
+                        <p class="text-sm text-gray-500">Push and edit in Webflow!</p>
                     </div>
                     <button type="button" id="copyRawAiButton" class="text-xs font-medium text-indigo-600 hover:text-indigo-500">Copy raw AI output</button>
                 </div>
